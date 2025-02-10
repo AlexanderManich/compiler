@@ -9,6 +9,8 @@ typedef enum {
     TOKEN_LEFT_CURLY,
     TOKEN_RIGHT_CURLY,
     TOKEN_SEMICOLON,
+    TOKEN_ASSIGN,
+    TOKEN_LT_EQUAL,
     TOKEN_INVALID,
 } TokenKind;
 
@@ -33,4 +35,4 @@ typedef struct {
 
 Token next_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
-char *token_kind_name(Token token); 
+char *token_kind_name(Token token);

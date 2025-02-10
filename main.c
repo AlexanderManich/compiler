@@ -11,6 +11,7 @@ static char *shift(int *argc, char ***argv) {
     *argv += 1;
     return result;
 }
+
 char *read_entire_file(char *file_path) {
     FILE *file = fopen(file_path, "r");
 
@@ -19,25 +20,36 @@ char *read_entire_file(char *file_path) {
         exit(EXIT_FAILURE);
     }
 
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fprintf(stderr, "ERROR: failed to seek to end of file\n");
+    }
 
-    char *contents = malloc(file_size);
+    long file_size = ftell(file);
+
+    if (file_size < 0) {
+        fprintf(stderr, "ERROR: failed to get file size\n");
+    }
+
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        fprintf(stderr, "ERROR: failed to seek to beginning of file\n");
+    }
+
+    char *contents = malloc(file_size + 1);
     
     if (contents == NULL) {
         fprintf(stderr, "Malloc failed\n");
         exit(EXIT_FAILURE);
     }
 
-    size_t contents_size = fread(contents, file_size, 1, file);
+    size_t bytes_read = fread(contents, 1, file_size, file);
 
-    if (contents_size != 1) {
+    if (bytes_read != (size_t)file_size) {
         fprintf(stderr, "ERROR: failed to read file");
+        free(contents);
         exit(EXIT_FAILURE);
     }
 
-    contents[file_size] = '\0';
+    contents[bytes_read] = '\0';
 
     fclose(file);
 
