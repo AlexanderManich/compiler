@@ -85,11 +85,8 @@ int main(int argc, char **argv) {
     lexer.content = input;
     lexer.content_len = strlen(input);
 
-    Token token; 
-    token = next_token(&lexer);
-    while (token.kind != TOKEN_END) {
+    for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
         printf("%.*s (%s)\n", (int) token.text_len, token.text, token_kind_name(token));
-        token = next_token(&lexer);
     }
 
     return EXIT_SUCCESS;
