@@ -1,10 +1,11 @@
 #include <stdlib.h>
 
-typedef enum {
+typedef enum TokenKind {
     TOKEN_END = 0,
     TOKEN_SYMBOL,
     TOKEN_NUMBER,
     TOKEN_STRING,
+    TOKEN_PLUS,
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_CURLY,
@@ -19,24 +20,27 @@ typedef enum {
     TOKEN_INVALID,
 } TokenKind;
 
-typedef struct {
+typedef struct Token Token;
+struct Token {
     TokenKind kind;
     char *text;
     size_t text_len;
-} Token;
+};
 
-typedef struct {
+typedef struct TokenLiteral TokenLiteral;
+struct TokenLiteral {
     char *text;
     TokenKind kind;
-} TokenLiteral;
+};
 
-typedef struct {
+typedef struct Lexer Lexer;
+struct Lexer {
     char *content;
     size_t content_len;
     size_t cursor;
     size_t line;
     size_t beginning_of_line;
-} Lexer;
+};
 
 Token next_token(Lexer *lexer);
 void eat_char(Lexer *lexer);

@@ -19,6 +19,7 @@ TokenLiteral literal_tokens[] = {
     {.text = ">=", .kind = TOKEN_GT_EQUAL},
     {.text = "<",  .kind = TOKEN_LT},
     {.text = ">",  .kind = TOKEN_GT},
+    {.text = "+",  .kind = TOKEN_PLUS},
 };
 
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
@@ -33,6 +34,8 @@ char *token_kind_name(Token token) {
             return "number";
         case TOKEN_STRING:
             return "string";
+        case TOKEN_PLUS:
+            return "plus";
         case TOKEN_LEFT_PAREN:
             return "left parenthesis";
         case TOKEN_RIGHT_PAREN:
