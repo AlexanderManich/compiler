@@ -1,4 +1,8 @@
+#ifndef LEXER_H
+#define LEXER_H
+
 #include <stdlib.h>
+#include "compiler.h"
 
 typedef enum TokenKind {
     TOKEN_END = 0,
@@ -35,13 +39,15 @@ struct TokenLiteral {
 
 typedef struct Lexer Lexer;
 struct Lexer {
-    char *content;
-    size_t content_len;
+    String8 input;
     size_t cursor;
     size_t line;
     size_t beginning_of_line;
 };
 
+char lexer_peek_next_char(Lexer *lexer);
 Token next_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
 char *token_kind_name(Token token);
+
+#endif //LEXER_H

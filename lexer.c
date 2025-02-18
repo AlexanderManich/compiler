@@ -75,12 +75,13 @@ bool is_symbol(char c) {
     return isalnum(c) || c == '_';
 }
 
-bool is_digit(char c) {
-    return isdigit(c);
+bool is_number_start(char c) {
+    if (isdigit(c)) return true;
+    return false;
 }
 
 void trim_input_left(Lexer *lexer) {
-    while (lexer->cursor < lexer->content_len && isspace(lexer->content[lexer->cursor])) {
+    while (lexer->cursor < lexer->input.size && isspace(lexer->input.str[lexer->cursor])) {
         eat_char(lexer);
     }
 }
@@ -91,12 +92,12 @@ bool lexer_starts_with(Lexer *lexer, const char *prefix) {
     if (prefix == 0) {
         return true;
     }
-    if (lexer->cursor + prefix_len - 1 >= lexer->content_len) {
+    if (lexer->cursor + prefix_len - 1 >= lexer->input.size) {
         return false;
     }
      
     for (size_t i = 0; i < prefix_len; i++) {
-        if (prefix[i] != lexer->content[lexer->cursor + i]) {
+        if (prefix[i] != lexer->input.str[lexer->cursor + i]) {
             return false;
         }
     }
@@ -104,9 +105,10 @@ bool lexer_starts_with(Lexer *lexer, const char *prefix) {
     return true;
 }
 
+inline 
 void eat_char(Lexer *lexer) {
-    assert(lexer->cursor < lexer->content_len);
-    char c = lexer->content[lexer->cursor];
+    assert(lexer->cursor < lexer->input.size);
+    char c = lexer->input.str[lexer->cursor];
     lexer->cursor += 1;
     if (c == '\n') {
         lexer->line += 1;
@@ -114,11 +116,16 @@ void eat_char(Lexer *lexer) {
     }
 }
 
+inline 
+char lexer_peek_next_char(Lexer *lexer) {
+    return lexer->input.str[lexer->cursor + 1];
+}
+
 Token next_token(Lexer *lexer) {
     trim_input_left(lexer);
     
-    if (lexer->content[lexer->cursor] == '/') {
-        if (lexer->content[lexer->cursor + 1] == '/') {
+    if (lexer->input.str[lexer->cursor] == '/') {
+        if (lexer_peek_next_char(lexer) == '/') {
             size_t comment_line = lexer->line;
             while (comment_line == lexer->line) {
                 eat_char(lexer);
@@ -129,17 +136,18 @@ Token next_token(Lexer *lexer) {
     trim_input_left(lexer);
     
     Token token = {
-        .text = &lexer->content[lexer->cursor]
+        .text = &lexer->input.str[lexer->cursor]
     };
     
-    if (lexer->cursor >= lexer->content_len) return token;
+    if (lexer->cursor >= lexer->input.size) return token;
     
     // Strings
-    if (lexer->content[lexer->cursor] == '"') {
+    // TODO: This does not work correctly
+    if (lexer->input.str[lexer->cursor] == '"') {
         token.kind = TOKEN_STRING;
         eat_char(lexer); 
-        token.text = &lexer->content[lexer->cursor]; 
-        while (lexer->cursor < lexer->content_len && lexer->content[lexer->cursor] != '"') {
+        token.text = &lexer->input.str[lexer->cursor]; 
+        while (lexer->cursor < lexer->input.size && lexer->input.str[lexer->cursor] != '"') {
             eat_char(lexer);
             token.text_len += 1;
         }
@@ -159,18 +167,18 @@ Token next_token(Lexer *lexer) {
         }
     }
 
-    if (is_symbol_start(lexer->content[lexer->cursor])) {
+    if (is_symbol_start(lexer->input.str[lexer->cursor])) {
         token.kind = TOKEN_SYMBOL;
-        while (lexer->cursor < lexer->content_len && is_symbol(lexer->content[lexer->cursor])) {
+        while (lexer->cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->cursor])) {
             eat_char(lexer);
             token.text_len += 1;
         }
         return token;
     }
 
-    if (is_digit(lexer->content[lexer->cursor])) {
+    if (is_number_start(lexer->input.str[lexer->cursor])) {
         token.kind = TOKEN_NUMBER;
-        while (lexer->cursor < lexer->content_len && is_digit(lexer->content[lexer->cursor])) {
+        while (lexer->cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->cursor])) {
             eat_char(lexer);
             token.text_len += 1;
         }
