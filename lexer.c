@@ -8,18 +8,19 @@
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 TokenLiteral literal_tokens[] = {
-    {.text = "(",  .kind = TOKEN_LEFT_PAREN},
-    {.text = ")",  .kind = TOKEN_RIGHT_PAREN},
-    {.text = "{",  .kind = TOKEN_LEFT_CURLY},
-    {.text = "}",  .kind = TOKEN_RIGHT_CURLY},
-    {.text = ";",  .kind = TOKEN_SEMICOLON},
-    {.text = "==", .kind = TOKEN_EQUAL_EQUAL},
-    {.text = "=",  .kind = TOKEN_EQUAL},
-    {.text = "<=", .kind = TOKEN_LT_EQUAL},
-    {.text = ">=", .kind = TOKEN_GT_EQUAL},
-    {.text = "<",  .kind = TOKEN_LT},
-    {.text = ">",  .kind = TOKEN_GT},
-    {.text = "+",  .kind = TOKEN_PLUS},
+    {.text = {.str = "(",  .size = 1}, .kind = TOKEN_LEFT_PAREN},
+    {.text = {.str = ")",  .size = 1}, .kind = TOKEN_RIGHT_PAREN},
+    {.text = {.str = "{",  .size = 1}, .kind = TOKEN_LEFT_CURLY},
+    {.text = {.str = "}",  .size = 1}, .kind = TOKEN_RIGHT_CURLY},
+    {.text = {.str = ";",  .size = 1}, .kind = TOKEN_SEMICOLON},
+    {.text = {.str = "==", .size = 2}, .kind = TOKEN_EQUAL_EQUAL},
+    {.text = {.str = "=",  .size = 1}, .kind = TOKEN_EQUAL},
+    {.text = {.str = "!",  .size = 1}, .kind = TOKEN_EXCLAMATION},
+    {.text = {.str = "<=", .size = 2}, .kind = TOKEN_LT_EQUAL},
+    {.text = {.str = ">=", .size = 2}, .kind = TOKEN_GT_EQUAL},
+    {.text = {.str = "<",  .size = 1}, .kind = TOKEN_LT},
+    {.text = {.str = ">",  .size = 1}, .kind = TOKEN_GT},
+    {.text = {.str = "+",  .size = 1}, .kind = TOKEN_PLUS},
 };
 
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
@@ -50,6 +51,8 @@ char *token_kind_name(Token token) {
             return "equal";
         case TOKEN_EQUAL_EQUAL:
             return "equal equal";
+        case TOKEN_EXCLAMATION:
+            return "exclamation mark";
         case TOKEN_LT_EQUAL:
             return "less than equal";
         case TOKEN_GT_EQUAL:
@@ -86,18 +89,16 @@ void trim_input_left(Lexer *lexer) {
     }
 }
 
-bool lexer_starts_with(Lexer *lexer, const char *prefix) {
-    size_t prefix_len = strlen(prefix);
-
-    if (prefix == 0) {
+bool lexer_starts_with(Lexer *lexer, const String8 prefix) {
+    if (prefix.str == 0) {
         return true;
     }
-    if (lexer->cursor + prefix_len - 1 >= lexer->input.size) {
+    if (lexer->cursor + prefix.size - 1 >= lexer->input.size) {
         return false;
     }
      
-    for (size_t i = 0; i < prefix_len; i++) {
-        if (prefix[i] != lexer->input.str[lexer->cursor + i]) {
+    for (size_t i = 0; i < prefix.size; i++) {
+        if (prefix.str[i] != lexer->input.str[lexer->cursor + i]) {
             return false;
         }
     }
@@ -159,7 +160,7 @@ Token next_token(Lexer *lexer) {
     for (size_t i = 0; i < literal_tokens_count; i++) {
         // If current character is a prefix of a literal, lex the whole literal
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
-            size_t text_len = strlen(literal_tokens[i].text);
+            size_t text_len = literal_tokens[i].text.size;
             token.kind = literal_tokens[i].kind;
             token.text_len = text_len;
             lexer->cursor += text_len;

@@ -17,6 +17,7 @@ typedef enum TokenKind {
     TOKEN_SEMICOLON,
     TOKEN_EQUAL,
     TOKEN_EQUAL_EQUAL,
+    TOKEN_EXCLAMATION,
     TOKEN_LT_EQUAL,
     TOKEN_GT_EQUAL,
     TOKEN_LT,
@@ -33,7 +34,7 @@ struct Token {
 
 typedef struct TokenLiteral TokenLiteral;
 struct TokenLiteral {
-    char *text;
+    String8 text;
     TokenKind kind;
 };
 
