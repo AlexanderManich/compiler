@@ -14,42 +14,52 @@ static String8 shift(int *argc, char ***argv) {
     return result;
 }
 
-size_t CalculateCStringLength(char *cstr) {
-    size_t i = 0;
+u64 CalculateCStringLength(char *cstr) {
+    u64 i = 0;
     for(; cstr[i]; i += 1);
     return i;
 }
 
-String8 S8(char *str, size_t size) {
-    String8 string;
+String8 S8(u8 *str, u64 size) {
+    String8 string = {0};
     string.str  = str;
     string.size = size;
     return string;
 }
 
+bool S8Compare(String8 str1, String8 str2) {
+    i32 result = 0;
+
+    if (str1.size == str2.size) {
+        result = 1;
+
+        for (u64 i = 0; i < str1.size && i < str2.size; i++) {
+            bool match = (str1.str[i] == str2.str[i]);
+
+            if (!match) {
+                result = 0;
+                break;
+            }
+        }
+    }
+    return result;
+}
+
 String8 read_entire_file(String8 file_path) {
     String8 result = {0};
-    FILE *file = fopen(file_path.str, "r");
+    char *file_path_cstr = (char*)file_path.str;
+    FILE *file = fopen(file_path_cstr, "rb");
 
     if (file) {
         fseek(file, 0, SEEK_END);
         result.size = ftell(file);
         fseek(file, 0, SEEK_SET);
         result.str = malloc(result.size);
-        size_t bytes_read = fread(result.str, 1, result.size, file);
-
-        if (bytes_read != (size_t)result.size) {
-            fprintf(stderr, "ERROR: failed to read file");
-            free(result.str);
-            exit(EXIT_FAILURE);
-        }
-
+        fread(result.str, result.size, 1, file);
         fclose(file);
-
-        return result;
     }
-    fprintf(stderr, "Couldn't find file: %s\n", file_path.str);
-    exit(EXIT_FAILURE);
+
+    return result;
 }
 
 int main(int argc, char **argv) {
@@ -60,8 +70,9 @@ int main(int argc, char **argv) {
 
     while (argc > 0) {
         String8 flag = shift(&argc, &argv);
-
-        if (strcmp(flag.str, "-o") == 0) {
+        bool match = S8Compare(flag, S8Lit("-o")) == 0;
+        printf("match: %d\n", match);
+        if (match) {
             if (argc <= 0) {
                 fprintf(stderr, "ERROR: no value provided for flag '%s'\n",
                         flag.str);
