@@ -10,6 +10,7 @@ typedef enum TokenKind {
     TOKEN_NUMBER,
     TOKEN_STRING,
     TOKEN_PLUS,
+    TOKEN_MULT,
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_CURLY,

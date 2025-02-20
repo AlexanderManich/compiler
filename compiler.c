@@ -4,6 +4,7 @@
 #include <string.h>
 #include "compiler.h"
 #include "lexer.h"
+#include "parser.h"
 
 static String8 shift(int *argc, char ***argv) {
     assert(*argc > 0);
@@ -92,9 +93,11 @@ int main(int argc, char **argv) {
     Lexer lexer = {0};
     lexer.input = input;
 
-    for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
-        printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
-    }
+    // for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
+    //     printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
+    // }
+
+    ASTNode *expr = parse_expression(&lexer, 0);
 
     return EXIT_SUCCESS;
 }

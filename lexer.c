@@ -37,6 +37,8 @@ String8 token_kind_name(Token token) {
             return S8Lit("string");
         case TOKEN_PLUS:
             return S8Lit("plus");
+        case TOKEN_MULT:
+            return S8Lit("mult");
         case TOKEN_LEFT_PAREN:
             return S8Lit("left parenthesis");
         case TOKEN_RIGHT_PAREN:

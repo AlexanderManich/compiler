@@ -1,6 +1,10 @@
+#ifndef PARSER_H 
+#define PARSER_H 
+
 #include <stddef.h>
 #include <stdio.h>
-typedef enum {
+
+typedef enum NodeKind {
     NODE_VAR,
     NODE_INT_LITERAL,
     NODE_BINARY_OP,
@@ -10,27 +14,25 @@ typedef struct ASTNode ASTNode;
 struct ASTNode {
     NodeKind kind;
     union {
-        struct { char *name; } var;
-        struct { int value; } int_literal;
-        struct { ASTNode *left; ASTNode *right; char op; } binary_op;
+        struct { String8 name; } var;
+        struct { i32 value; } int_literal;
+        struct { ASTNode *left; ASTNode *right; String8 op; } binary_op;
     };
 };
 
-ASTNode *parse_factor();
+String8 node_kind_name(ASTNode node);
 
-int string_to_int(const char *str, size_t size) {
-    int result = 0;
-    size_t i = 0;
+ASTNode *make_number(Token token);
+ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right);
 
-    while (str[i] >= '0' && str[i] <= '9') {
-        result = result * 10 + (str[i] - '0');
-        i++;
-    }
+String8 to_operator(Token token);
+bool is_binary_operator(Token token);
+i32 get_precedence(Token token);
 
-    if (i < size) {
-        fprintf(stderr, "Error: Invalid integer format: &s\n");
-        return 0;
-    }
+ASTNode *parse_leaf(Lexer *lexer);
+ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
+ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence);
 
-    return result;
-}
+i32 S8_to_i32(String8 str);
+
+#endif //PARSER_H
