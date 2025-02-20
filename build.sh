@@ -1,4 +1,5 @@
 CFLAGS="-Wall -Wextra -pedantic"
 
-gcc $CFLAGS -g -o compiler compiler.c lexer.c 
-./compiler $1 $2 $3
+mkdir -p build
+gcc $CFLAGS -g -o build/compiler compiler.c lexer.c 
+./build/compiler $1 $2 $3
