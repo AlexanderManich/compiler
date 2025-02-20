@@ -21,6 +21,7 @@ TokenLiteral literal_tokens[] = {
     {.text = S8LitComp("<"),  .kind = TOKEN_LT},
     {.text = S8LitComp(">"),  .kind = TOKEN_GT},
     {.text = S8LitComp("+"),  .kind = TOKEN_PLUS},
+    {.text = S8LitComp("*"),  .kind = TOKEN_MULT},
 };
 
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])

@@ -68,19 +68,18 @@ ASTNode *parse_leaf(Lexer *lexer) {
 }
 
 ASTNode* parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence) {
-    // TODO: This is bugged
     Token next = next_token(lexer);
 
     if (!is_binary_operator(next)) return left;
 
     i32 next_prec = get_precedence(next);
 
-    if (next_prec <= min_precedence ) {
-        return left;
-    }
-    else {
+    if (next_prec >= min_precedence) {
         ASTNode *right = parse_expression(lexer, next_prec);
         return make_binary(left, to_operator(next), right);
+    }
+    else {
+        return left;
     }
 }
 
