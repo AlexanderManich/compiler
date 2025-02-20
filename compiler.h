@@ -30,7 +30,8 @@ String8 S8(u8 *str, u64 size);
 
 #define S8CString(s) S8((u8 *)(s), CalculateCStringLength(s))
 #define S8Lit(s)     (String8){(u8 *)(s), sizeof(s) - 1}
+#define S8LitComp(s) {(u8 *)(s), sizeof(s) - 1}
 
-bool S8Compare(String8 str1, String8 str2);
+bool S8Compare(const String8 str1, const String8 str2);
 
 #endif // COMPILER_H

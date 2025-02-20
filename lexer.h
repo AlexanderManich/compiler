@@ -28,8 +28,7 @@ typedef enum TokenKind {
 typedef struct Token Token;
 struct Token {
     TokenKind kind;
-    char *text;
-    size_t text_len;
+    String8 text;
 };
 
 typedef struct TokenLiteral TokenLiteral;
@@ -41,14 +40,14 @@ struct TokenLiteral {
 typedef struct Lexer Lexer;
 struct Lexer {
     String8 input;
-    size_t cursor;
-    size_t line;
-    size_t beginning_of_line;
+    u64 cursor;
+    u64 line;
+    u64 beginning_of_line;
 };
 
 char lexer_peek_next_char(Lexer *lexer);
 Token next_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
-char *token_kind_name(Token token);
+String8 token_kind_name(Token token);
 
 #endif //LEXER_H

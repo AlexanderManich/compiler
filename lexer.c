@@ -8,66 +8,66 @@
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 TokenLiteral literal_tokens[] = {
-    {.text = {.str = "(",  .size = 1}, .kind = TOKEN_LEFT_PAREN},
-    {.text = {.str = ")",  .size = 1}, .kind = TOKEN_RIGHT_PAREN},
-    {.text = {.str = "{",  .size = 1}, .kind = TOKEN_LEFT_CURLY},
-    {.text = {.str = "}",  .size = 1}, .kind = TOKEN_RIGHT_CURLY},
-    {.text = {.str = ";",  .size = 1}, .kind = TOKEN_SEMICOLON},
-    {.text = {.str = "==", .size = 2}, .kind = TOKEN_EQUAL_EQUAL},
-    {.text = {.str = "=",  .size = 1}, .kind = TOKEN_EQUAL},
-    {.text = {.str = "!",  .size = 1}, .kind = TOKEN_EXCLAMATION},
-    {.text = {.str = "<=", .size = 2}, .kind = TOKEN_LT_EQUAL},
-    {.text = {.str = ">=", .size = 2}, .kind = TOKEN_GT_EQUAL},
-    {.text = {.str = "<",  .size = 1}, .kind = TOKEN_LT},
-    {.text = {.str = ">",  .size = 1}, .kind = TOKEN_GT},
-    {.text = {.str = "+",  .size = 1}, .kind = TOKEN_PLUS},
+    {.text = S8LitComp("("),  .kind = TOKEN_LEFT_PAREN},
+    {.text = S8LitComp(")"),  .kind = TOKEN_RIGHT_PAREN},
+    {.text = S8LitComp("{"),  .kind = TOKEN_LEFT_CURLY},
+    {.text = S8LitComp("}"),  .kind = TOKEN_RIGHT_CURLY},
+    {.text = S8LitComp(";"),  .kind = TOKEN_SEMICOLON},
+    {.text = S8LitComp("=="), .kind = TOKEN_EQUAL_EQUAL},
+    {.text = S8LitComp("="),  .kind = TOKEN_EQUAL},
+    {.text = S8LitComp("!"),  .kind = TOKEN_EXCLAMATION},
+    {.text = S8LitComp("<="), .kind = TOKEN_LT_EQUAL},
+    {.text = S8LitComp(">="), .kind = TOKEN_GT_EQUAL},
+    {.text = S8LitComp("<"),  .kind = TOKEN_LT},
+    {.text = S8LitComp(">"),  .kind = TOKEN_GT},
+    {.text = S8LitComp("+"),  .kind = TOKEN_PLUS},
 };
 
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
 
-char *token_kind_name(Token token) {
+String8 token_kind_name(Token token) {
     switch (token.kind) {
         case TOKEN_END:
-            return "end of input";
+            return S8Lit("end of input");
         case TOKEN_SYMBOL:
-            return "symbol";
+            return S8Lit("symbol");
         case TOKEN_NUMBER:
-            return "number";
+            return S8Lit("number");
         case TOKEN_STRING:
-            return "string";
+            return S8Lit("string");
         case TOKEN_PLUS:
-            return "plus";
+            return S8Lit("plus");
         case TOKEN_LEFT_PAREN:
-            return "left parenthesis";
+            return S8Lit("left parenthesis");
         case TOKEN_RIGHT_PAREN:
-            return "right parenthesis";
+            return S8Lit("right parenthesis");
         case TOKEN_LEFT_CURLY:
-            return "left curly bracket";
+            return S8Lit("left curly bracket");
         case TOKEN_RIGHT_CURLY:
-            return "right curly bracket";
+            return S8Lit("right curly bracket");
         case TOKEN_SEMICOLON:
-            return "semicolon";
+            return S8Lit("semicolon");
         case TOKEN_EQUAL:
-            return "equal";
+            return S8Lit("equal");
         case TOKEN_EQUAL_EQUAL:
-            return "equal equal";
+            return S8Lit("equal equal");
         case TOKEN_EXCLAMATION:
-            return "exclamation mark";
+            return S8Lit("exclamation mark");
         case TOKEN_LT_EQUAL:
-            return "less than equal";
+            return S8Lit("less than equal");
         case TOKEN_GT_EQUAL:
-            return "greater than equal";
+            return S8Lit("greater than equal");
         case TOKEN_LT:
-            return "less than";
+            return S8Lit("less than");
         case TOKEN_GT:
-            return "greater than";
+            return S8Lit("greater than");
         case TOKEN_INVALID:
-            return "invalid token";
+            return S8Lit("invalid token");
         default:
-            fprintf(stderr, "ERROR: No name defined for token: %.*s\n", (int) token.text_len, token.text);
+            fprintf(stderr, "ERROR: No name defined for token: %.*s\n", (int) token.text.size, token.text.str);
     }
 
-    return NULL;
+    return S8Lit("");
 }
 
 bool is_symbol_start(char c) {
@@ -137,7 +137,7 @@ Token next_token(Lexer *lexer) {
     trim_input_left(lexer);
     
     Token token = {
-        .text = &lexer->input.str[lexer->cursor]
+        .text.str = &lexer->input.str[lexer->cursor]
     };
     
     if (lexer->cursor >= lexer->input.size) return token;
@@ -147,10 +147,10 @@ Token next_token(Lexer *lexer) {
     if (lexer->input.str[lexer->cursor] == '"') {
         token.kind = TOKEN_STRING;
         eat_char(lexer); 
-        token.text = &lexer->input.str[lexer->cursor]; 
+        token.text.str = &lexer->input.str[lexer->cursor]; 
         while (lexer->cursor < lexer->input.size && lexer->input.str[lexer->cursor] != '"') {
             eat_char(lexer);
-            token.text_len += 1;
+            token.text.size += 1;
         }
         eat_char(lexer); 
 
@@ -162,7 +162,7 @@ Token next_token(Lexer *lexer) {
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
             size_t text_len = literal_tokens[i].text.size;
             token.kind = literal_tokens[i].kind;
-            token.text_len = text_len;
+            token.text.size = text_len;
             lexer->cursor += text_len;
             return token;
         }
@@ -172,7 +172,7 @@ Token next_token(Lexer *lexer) {
         token.kind = TOKEN_SYMBOL;
         while (lexer->cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->cursor])) {
             eat_char(lexer);
-            token.text_len += 1;
+            token.text.size += 1;
         }
         return token;
     }
@@ -181,14 +181,14 @@ Token next_token(Lexer *lexer) {
         token.kind = TOKEN_NUMBER;
         while (lexer->cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->cursor])) {
             eat_char(lexer);
-            token.text_len += 1;
+            token.text.size += 1;
         }
         return token;
     }
 
     eat_char(lexer);
     token.kind = TOKEN_INVALID;
-    token.text_len = 1;
+    token.text.size = 1;
 
     return token;
 }

@@ -42,6 +42,7 @@ bool S8Compare(String8 str1, String8 str2) {
             }
         }
     }
+
     return result;
 }
 
@@ -50,14 +51,16 @@ String8 read_entire_file(String8 file_path) {
     char *file_path_cstr = (char*)file_path.str;
     FILE *file = fopen(file_path_cstr, "rb");
 
-    if (file) {
-        fseek(file, 0, SEEK_END);
-        result.size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        result.str = malloc(result.size);
-        fread(result.str, result.size, 1, file);
-        fclose(file);
-    }
+    if (!file) {
+        fprintf(stderr, "File doesn't exist %s\n", file_path_cstr);
+    } 
+
+    fseek(file, 0, SEEK_END);
+    result.size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    result.str = malloc(result.size);
+    fread(result.str, result.size, 1, file);
+    fclose(file);
 
     return result;
 }
@@ -70,12 +73,10 @@ int main(int argc, char **argv) {
 
     while (argc > 0) {
         String8 flag = shift(&argc, &argv);
-        bool match = S8Compare(flag, S8Lit("-o")) == 0;
-        printf("match: %d\n", match);
-        if (match) {
+        if (S8Compare(flag, S8Lit("-o"))) {
+
             if (argc <= 0) {
-                fprintf(stderr, "ERROR: no value provided for flag '%s'\n",
-                        flag.str);
+                fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);
                 exit(EXIT_FAILURE);
             }
             String8 output_file_path = shift(&argc, &argv);
@@ -92,7 +93,7 @@ int main(int argc, char **argv) {
     lexer.input = input;
 
     for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
-        printf("%.*s (%s)\n", (int) token.text_len, token.text, token_kind_name(token));
+        printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
     }
 
     return EXIT_SUCCESS;
