@@ -33,6 +33,10 @@ ASTNode *parse_leaf(Lexer *lexer);
 ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
 ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence);
 
+u64 calc_ast_tree_depth(ASTNode *tree);
+void print_ast(ASTNode *tree);
+CharGrid _print_ast(CharGrid buffer, ASTNode *tree, u32 x, u32 y);
+
 i32 S8_to_i32(String8 str);
 
 #endif //PARSER_H
