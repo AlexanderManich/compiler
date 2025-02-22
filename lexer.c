@@ -21,6 +21,7 @@ TokenLiteral literal_tokens[] = {
     {.text = S8LitComp("<"),  .kind = TOKEN_LT},
     {.text = S8LitComp(">"),  .kind = TOKEN_GT},
     {.text = S8LitComp("+"),  .kind = TOKEN_PLUS},
+    {.text = S8LitComp("-"),  .kind = TOKEN_MINUS},
     {.text = S8LitComp("*"),  .kind = TOKEN_MULT},
 };
 
@@ -38,6 +39,8 @@ String8 token_kind_name(Token token) {
             return S8Lit("string");
         case TOKEN_PLUS:
             return S8Lit("plus");
+        case TOKEN_MINUS:
+            return S8Lit("minus");
         case TOKEN_MULT:
             return S8Lit("mult");
         case TOKEN_LEFT_PAREN:
@@ -123,6 +126,12 @@ void eat_char(Lexer *lexer) {
 inline 
 char lexer_peek_next_char(Lexer *lexer) {
     return lexer->input.str[lexer->cursor + 1];
+}
+
+// Temp Hack
+Token peek_token(Lexer *lexer) {
+    Lexer temp_lexer = *lexer;
+    return next_token(&temp_lexer);
 }
 
 Token next_token(Lexer *lexer) {
