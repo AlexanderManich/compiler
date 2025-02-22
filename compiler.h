@@ -23,6 +23,13 @@ struct String8 {
     u64 size;
 };
 
+typedef struct CharGrid CharGrid;
+struct CharGrid {
+    u8 *grid;
+    u32 height;
+    u32 width;
+};
+
 // Strings
 u64 CalculateCStringLength(char *cstr);
 

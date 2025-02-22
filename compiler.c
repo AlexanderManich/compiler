@@ -98,6 +98,7 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *expr = parse_expression(&lexer, 0);
+    print_ast(expr);
 
     return EXIT_SUCCESS;
 }
