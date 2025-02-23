@@ -8,15 +8,19 @@ typedef enum NodeKind {
     NODE_VAR,
     NODE_INT_LITERAL,
     NODE_BINARY_OP,
-} NodeKind;
+    NODE_RETURN,
+    NODE_FUNCTION,
+} ASTNodeKind;
 
 typedef struct ASTNode ASTNode;
 struct ASTNode {
-    NodeKind kind;
+    ASTNodeKind kind;
     union {
         struct { String8 name; } var;
         struct { i32 value; } int_literal;
         struct { ASTNode *left; ASTNode *right; String8 op; } binary_op;
+        struct { ASTNode *expr;} return_val;
+        struct { String8 name; ASTNode *body;} function;
     };
 };
 
@@ -33,10 +37,16 @@ ASTNode *parse_leaf(Lexer *lexer);
 ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
 ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence);
 
+ASTNode *parse_statement(Lexer *lexer);
+ASTNode *parse_statements(Lexer *lexer);
+
+ASTNode *parse_function(Lexer *lexer);
+
 u64 calc_ast_tree_depth(ASTNode *tree);
 void print_ast(ASTNode *tree);
 CharGrid _print_ast(CharGrid buffer, ASTNode *tree, u32 x, u32 y);
 
 i32 S8_to_i32(String8 str);
+String8 i32_to_S8(i32 num);
 
 #endif //PARSER_H

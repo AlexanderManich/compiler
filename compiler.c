@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
     //     printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
     // }
 
-    ASTNode *expr = parse_expression(&lexer, 0);
+    ASTNode *expr = parse_function(&lexer);
     print_ast(expr);
 
     return EXIT_SUCCESS;

@@ -7,6 +7,7 @@
 typedef enum TokenKind {
     TOKEN_END = 0,
     TOKEN_SYMBOL,
+    TOKEN_KEYWORD,
     TOKEN_NUMBER,
     TOKEN_STRING,
     TOKEN_PLUS,
@@ -49,6 +50,7 @@ struct Lexer {
 
 char lexer_peek_next_char(Lexer *lexer);
 Token next_token(Lexer *lexer);
+bool is_keyword(Token token);
 Token peek_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
 String8 token_kind_name(Token token);

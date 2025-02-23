@@ -25,7 +25,15 @@ TokenLiteral literal_tokens[] = {
     {.text = S8LitComp("*"),  .kind = TOKEN_MULT},
 };
 
+String8 keywords[] = {
+    S8LitComp("if"),
+    S8LitComp("else"),
+    S8LitComp("return"),
+};
+
+
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
+#define keywords_count sizeof(keywords) / sizeof(keywords[0])
 
 String8 token_kind_name(Token token) {
     switch (token.kind) {
@@ -33,6 +41,8 @@ String8 token_kind_name(Token token) {
             return S8Lit("end of input");
         case TOKEN_SYMBOL:
             return S8Lit("symbol");
+        case TOKEN_KEYWORD:
+            return S8Lit("keyword");
         case TOKEN_NUMBER:
             return S8Lit("number");
         case TOKEN_STRING:
@@ -134,6 +144,7 @@ Token peek_token(Lexer *lexer) {
     return next_token(&temp_lexer);
 }
 
+inline 
 Token next_token(Lexer *lexer) {
     trim_input_left(lexer);
     
@@ -169,6 +180,7 @@ Token next_token(Lexer *lexer) {
         return token;
     }
     
+    // Literals
     for (size_t i = 0; i < literal_tokens_count; i++) {
         // If current character is a prefix of a literal, lex the whole literal
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
@@ -180,15 +192,22 @@ Token next_token(Lexer *lexer) {
         }
     }
 
+    // Symbols and keywords
     if (is_symbol_start(lexer->input.str[lexer->cursor])) {
-        token.kind = TOKEN_SYMBOL;
         while (lexer->cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->cursor])) {
             eat_char(lexer);
             token.text.size += 1;
         }
+        if (is_keyword(token)) {
+            token.kind = TOKEN_KEYWORD;
+        } else {
+            token.kind = TOKEN_SYMBOL;
+        }
+
         return token;
     }
 
+    // Numbers 
     if (is_number_start(lexer->input.str[lexer->cursor])) {
         token.kind = TOKEN_NUMBER;
         while (lexer->cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->cursor])) {
@@ -203,6 +222,13 @@ Token next_token(Lexer *lexer) {
     token.text.size = 1;
 
     return token;
+}
+
+bool is_keyword(Token token) {
+    for (u32 i = 0; i < keywords_count; ++i) {
+        if (S8Compare(token.text, keywords[i])) return true;
+    }
+    return false;
 }
 
 
