@@ -30,6 +30,9 @@ struct CharGrid {
     u32 width;
 };
 
+#define Max(a, b) ((a) > (b) ? (a) : (b))
+#define Min(a, b) ((a) < (b) ? (a) : (b))
+
 // Strings
 u64 CalculateCStringLength(char *cstr);
 

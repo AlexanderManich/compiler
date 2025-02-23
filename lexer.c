@@ -31,7 +31,6 @@ String8 keywords[] = {
     S8LitComp("return"),
 };
 
-
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
 #define keywords_count sizeof(keywords) / sizeof(keywords[0])
 
@@ -146,6 +145,8 @@ Token peek_token(Lexer *lexer) {
 
 inline 
 Token next_token(Lexer *lexer) {
+    if (!lexer->input.size) return (Token){0};
+
     trim_input_left(lexer);
     
     if (lexer->input.str[lexer->cursor] == '/') {
@@ -231,4 +232,21 @@ bool is_keyword(Token token) {
     return false;
 }
 
+Token token_from_kind(TokenKind kind) {
+    switch (kind) {
+        case TOKEN_LEFT_PAREN:
+            return TokenLit(kind, "(");
+        case TOKEN_RIGHT_PAREN:
+            return TokenLit(kind, ")");
+        case TOKEN_LEFT_CURLY:
+            return TokenLit(kind, "{");
+        case TOKEN_RIGHT_CURLY:
+            return TokenLit(kind, "}");
+        case TOKEN_SEMICOLON:
+            return TokenLit(kind, ";");
+        default:
+            fprintf(stderr, "Token from kind (%d) not implemented\n", kind);
+            return (Token){0};
+    }
+}
 
