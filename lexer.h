@@ -48,7 +48,7 @@ struct Lexer {
     u64 beginning_of_line;
 };
 
-#define TokenLit(kind, text) (Token){kind, S8CString(text)}
+#define token_lit(kind, text) (Token){kind, str8_cstring(text)}
 
 char lexer_peek_next_char(Lexer *lexer);
 Token next_token(Lexer *lexer);

@@ -57,7 +57,7 @@ u64 calc_ast_tree_depth(ASTNode *tree);
 void print_ast(ASTNode *tree);
 CharGrid _print_ast(CharGrid buffer, ASTNode *tree, u32 x, u32 y);
 
-i32 i32_from_S8(String8 str);
-String8 S8_from_i32(i32 num);
+i32 i32_from_str8(String8 str);
+String8 str8_from_i32(i32 num);
 
 #endif //PARSER_H

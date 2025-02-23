@@ -9,26 +9,26 @@
 static String8 shift(int *argc, char ***argv) {
     assert(*argc > 0);
     char *string = **argv;
-    String8 result = S8CString(string);
+    String8 result = str8_cstring(string);
     *argc -= 1;
     *argv += 1;
     return result;
 }
 
-u64 CalculateCStringLength(char *cstr) {
+u64 calc_cstring_length(char *cstr) {
     u64 i = 0;
     for(; cstr[i]; i += 1);
     return i;
 }
 
-String8 S8(u8 *str, u64 size) {
+String8 str8(u8 *str, u64 size) {
     String8 string = {0};
     string.str  = str;
     string.size = size;
     return string;
 }
 
-bool S8Compare(String8 str1, String8 str2) {
+bool str8_compare(String8 str1, String8 str2) {
     i32 result = 0;
 
     if (str1.size == str2.size) {
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 
     while (argc > 0) {
         String8 flag = shift(&argc, &argv);
-        if (S8Compare(flag, S8Lit("-o"))) {
+        if (str8_compare(flag, str8_lit("-o"))) {
 
             if (argc <= 0) {
                 fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);

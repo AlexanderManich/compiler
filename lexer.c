@@ -8,27 +8,27 @@
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 TokenLiteral literal_tokens[] = {
-    {.text = S8LitComp("("),  .kind = TOKEN_LEFT_PAREN},
-    {.text = S8LitComp(")"),  .kind = TOKEN_RIGHT_PAREN},
-    {.text = S8LitComp("{"),  .kind = TOKEN_LEFT_CURLY},
-    {.text = S8LitComp("}"),  .kind = TOKEN_RIGHT_CURLY},
-    {.text = S8LitComp(";"),  .kind = TOKEN_SEMICOLON},
-    {.text = S8LitComp("=="), .kind = TOKEN_EQUAL_EQUAL},
-    {.text = S8LitComp("="),  .kind = TOKEN_EQUAL},
-    {.text = S8LitComp("!"),  .kind = TOKEN_EXCLAMATION},
-    {.text = S8LitComp("<="), .kind = TOKEN_LT_EQUAL},
-    {.text = S8LitComp(">="), .kind = TOKEN_GT_EQUAL},
-    {.text = S8LitComp("<"),  .kind = TOKEN_LT},
-    {.text = S8LitComp(">"),  .kind = TOKEN_GT},
-    {.text = S8LitComp("+"),  .kind = TOKEN_PLUS},
-    {.text = S8LitComp("-"),  .kind = TOKEN_MINUS},
-    {.text = S8LitComp("*"),  .kind = TOKEN_MULT},
+    {.text = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN},
+    {.text = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN},
+    {.text = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY},
+    {.text = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY},
+    {.text = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON},
+    {.text = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL},
+    {.text = str8_lit_comp("="),  .kind = TOKEN_EQUAL},
+    {.text = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION},
+    {.text = str8_lit_comp("<="), .kind = TOKEN_LT_EQUAL},
+    {.text = str8_lit_comp(">="), .kind = TOKEN_GT_EQUAL},
+    {.text = str8_lit_comp("<"),  .kind = TOKEN_LT},
+    {.text = str8_lit_comp(">"),  .kind = TOKEN_GT},
+    {.text = str8_lit_comp("+"),  .kind = TOKEN_PLUS},
+    {.text = str8_lit_comp("-"),  .kind = TOKEN_MINUS},
+    {.text = str8_lit_comp("*"),  .kind = TOKEN_MULT},
 };
 
 String8 keywords[] = {
-    S8LitComp("if"),
-    S8LitComp("else"),
-    S8LitComp("return"),
+    str8_lit_comp("if"),
+    str8_lit_comp("else"),
+    str8_lit_comp("return"),
 };
 
 #define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
@@ -37,52 +37,52 @@ String8 keywords[] = {
 String8 token_kind_name(Token token) {
     switch (token.kind) {
         case TOKEN_END:
-            return S8Lit("end of input");
+            return str8_lit("end of input");
         case TOKEN_SYMBOL:
-            return S8Lit("symbol");
+            return str8_lit("symbol");
         case TOKEN_KEYWORD:
-            return S8Lit("keyword");
+            return str8_lit("keyword");
         case TOKEN_NUMBER:
-            return S8Lit("number");
+            return str8_lit("number");
         case TOKEN_STRING:
-            return S8Lit("string");
+            return str8_lit("string");
         case TOKEN_PLUS:
-            return S8Lit("plus");
+            return str8_lit("plus");
         case TOKEN_MINUS:
-            return S8Lit("minus");
+            return str8_lit("minus");
         case TOKEN_MULT:
-            return S8Lit("mult");
+            return str8_lit("mult");
         case TOKEN_LEFT_PAREN:
-            return S8Lit("left parenthesis");
+            return str8_lit("left parenthesis");
         case TOKEN_RIGHT_PAREN:
-            return S8Lit("right parenthesis");
+            return str8_lit("right parenthesis");
         case TOKEN_LEFT_CURLY:
-            return S8Lit("left curly bracket");
+            return str8_lit("left curly bracket");
         case TOKEN_RIGHT_CURLY:
-            return S8Lit("right curly bracket");
+            return str8_lit("right curly bracket");
         case TOKEN_SEMICOLON:
-            return S8Lit("semicolon");
+            return str8_lit("semicolon");
         case TOKEN_EQUAL:
-            return S8Lit("equal");
+            return str8_lit("equal");
         case TOKEN_EQUAL_EQUAL:
-            return S8Lit("equal equal");
+            return str8_lit("equal equal");
         case TOKEN_EXCLAMATION:
-            return S8Lit("exclamation mark");
+            return str8_lit("exclamation mark");
         case TOKEN_LT_EQUAL:
-            return S8Lit("less than equal");
+            return str8_lit("less than equal");
         case TOKEN_GT_EQUAL:
-            return S8Lit("greater than equal");
+            return str8_lit("greater than equal");
         case TOKEN_LT:
-            return S8Lit("less than");
+            return str8_lit("less than");
         case TOKEN_GT:
-            return S8Lit("greater than");
+            return str8_lit("greater than");
         case TOKEN_INVALID:
-            return S8Lit("invalid token");
+            return str8_lit("invalid token");
         default:
             fprintf(stderr, "ERROR: No name defined for token: %.*s\n", (int) token.text.size, token.text.str);
     }
 
-    return S8Lit("");
+    return (String8){0};
 }
 
 bool is_symbol_start(char c) {
@@ -227,7 +227,7 @@ Token next_token(Lexer *lexer) {
 
 bool is_keyword(Token token) {
     for (u32 i = 0; i < keywords_count; ++i) {
-        if (S8Compare(token.text, keywords[i])) return true;
+        if (str8_compare(token.text, keywords[i])) return true;
     }
     return false;
 }
@@ -235,15 +235,15 @@ bool is_keyword(Token token) {
 Token token_from_kind(TokenKind kind) {
     switch (kind) {
         case TOKEN_LEFT_PAREN:
-            return TokenLit(kind, "(");
+            return token_lit(kind, "(");
         case TOKEN_RIGHT_PAREN:
-            return TokenLit(kind, ")");
+            return token_lit(kind, ")");
         case TOKEN_LEFT_CURLY:
-            return TokenLit(kind, "{");
+            return token_lit(kind, "{");
         case TOKEN_RIGHT_CURLY:
-            return TokenLit(kind, "}");
+            return token_lit(kind, "}");
         case TOKEN_SEMICOLON:
-            return TokenLit(kind, ";");
+            return token_lit(kind, ";");
         default:
             fprintf(stderr, "Token from kind (%d) not implemented\n", kind);
             return (Token){0};

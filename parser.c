@@ -38,7 +38,7 @@ u64 calc_ast_tree_depth(ASTNode *tree) {
     if (tree->kind == NODE_BINARY_OP) {
         u64 left_depth = calc_ast_tree_depth(tree->binary_op.left);
         u64 right_depth = calc_ast_tree_depth(tree->binary_op.right);
-        return 1 + Max(left_depth, right_depth);
+        return 1 + max(left_depth, right_depth);
     }
 
     if (tree->kind == NODE_RETURN) {
@@ -82,16 +82,17 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
         _print_ast(buffer, node->binary_op.right, x + offset, y + 2);
     }
     if (node->kind == NODE_INT_LITERAL) {
-        String8 i32_as_s8 = S8_from_i32(node->int_literal.value);
+        String8 i32_as_s8 = str8_from_i32(node->int_literal.value);
         memcpy(&buffer.grid[y * buffer.width + x], i32_as_s8.str, i32_as_s8.size);
     }
     if (node->kind == NODE_RETURN) {
-        memcpy(&buffer.grid[y * buffer.width + x], node_kind_name(node).str, 6);
+        String8 node_name = node_kind_name(node);
+        memcpy(&buffer.grid[y * buffer.width + x], node_name.str, node_name.size);
         memcpy(&buffer.grid[(y + 1) * buffer.width + x], "|", 1);
         _print_ast(buffer, node->return_val.expr, x, y + 2);
     }
     if (node->kind == NODE_FUNCTION) {
-        // TODO: Change from sprintf, when i have S8FormatString
+        // TODO: Change from sprintf, when i have str8 format string
         sprintf((char *)(buffer.grid + y * buffer.width + x),
         "%s (%.*s)", node_kind_name(node).str, (int)node->function.name.size, node->function.name.str);
 
@@ -106,15 +107,15 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
 String8 node_kind_name(ASTNode *node) {
     switch (node->kind) {
         case NODE_VAR:
-            return S8Lit("Variable");
+            return str8_lit("Variable");
         case NODE_INT_LITERAL:
-            return S8Lit("Integer literal");
+            return str8_lit("Integer literal");
         case NODE_BINARY_OP:
-            return S8Lit("Binary operator");
+            return str8_lit("Binary operator");
         case NODE_RETURN:
-            return S8Lit("Return");
+            return str8_lit("Return");
         case NODE_FUNCTION:
-            return S8Lit("Function");
+            return str8_lit("Function");
         default:
             fprintf(stderr, "No name defined for node: %d", node->kind);
     }
@@ -127,7 +128,7 @@ String8 node_kind_name(ASTNode *node) {
 ASTNode *make_number(Token token) {
     ASTNode *node = malloc(sizeof(ASTNode));
     node->kind = NODE_INT_LITERAL;
-    node->int_literal.value = i32_from_S8(token.text);
+    node->int_literal.value = i32_from_str8(token.text);
     return node;
 }
 
@@ -212,10 +213,10 @@ ASTNode *parse_statement(Lexer *lexer) {
     ASTNode *statement = {0};
 
     if (next.kind == TOKEN_KEYWORD) {
-        if (S8Compare(next.text, S8Lit("return"))) {
+        if (str8_compare(next.text, str8_lit("return"))) {
             statement = parse_return(lexer); 
         }
-        if (S8Compare(next.text, S8Lit("if"))) {
+        if (str8_compare(next.text, str8_lit("if"))) {
             statement = parse_if(lexer);
         }
     }
@@ -251,7 +252,7 @@ ASTNode *parse_if(Lexer *lexer) {
     parser_expect(lexer, TOKEN_RIGHT_CURLY);
 
     ASTNode *else_body = {0};
-    if (S8Compare(peek_token(lexer).text, S8Lit("else"))) {
+    if (str8_compare(peek_token(lexer).text, str8_lit("else"))) {
         next_token(lexer);
         parser_expect(lexer, TOKEN_LEFT_CURLY);
         else_body = parse_statement(lexer);
@@ -273,7 +274,7 @@ void parser_expect(Lexer *lexer, TokenKind kind) {
     if (token.kind != kind) fprintf(stderr, "Expected: %s\n", token_from_kind(kind).text.str);
 }
 
-i32 i32_from_S8(String8 str) {
+i32 i32_from_str8(String8 str) {
     i32 result = 0;
     u64 i = 0;
 
@@ -290,7 +291,7 @@ i32 i32_from_S8(String8 str) {
     return result;
 }
 
-String8 S8_from_i32(i32 num) {
+String8 str8_from_i32(i32 num) {
     String8 str = {0};
 
     if (num == 0) {

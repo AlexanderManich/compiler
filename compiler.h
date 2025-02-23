@@ -30,18 +30,18 @@ struct CharGrid {
     u32 width;
 };
 
-#define Max(a, b) ((a) > (b) ? (a) : (b))
-#define Min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 // Strings
-u64 CalculateCStringLength(char *cstr);
+u64 calc_cstring_length(char *cstr);
 
-String8 S8(u8 *str, u64 size);
+String8 str8(u8 *str, u64 size);
 
-#define S8CString(s) S8((u8 *)(s), CalculateCStringLength(s))
-#define S8Lit(s)     (String8){(u8 *)(s), sizeof(s) - 1}
-#define S8LitComp(s) {(u8 *)(s), sizeof(s) - 1}
+#define str8_cstring(s) str8((u8 *)(s), calc_cstring_length(s))
+#define str8_lit(s)     (String8){(u8 *)(s), sizeof(s) - 1}
+#define str8_lit_comp(s) {(u8 *)(s), sizeof(s) - 1}
 
-bool S8Compare(const String8 str1, const String8 str2);
+bool str8_compare(const String8 str1, const String8 str2);
 
 #endif // COMPILER_H
