@@ -6,7 +6,7 @@
 
 typedef enum NodeKind {
     NODE_VAR,
-    NODE_INT_LITERAL,
+    NODE_INT,
     NODE_BINARY_OP,
     NODE_RETURN,
     NODE_FUNCTION,
@@ -18,7 +18,7 @@ struct ASTNode {
     ASTNodeKind kind;
     union {
         struct ASTVar { String8 name; } var;
-        struct { i32 value; } int_literal;
+        struct { i32 value; } integer;
         struct { ASTNode *left; ASTNode *right; String8 op; } binary_op;
         struct { ASTNode *expr;} return_val;
         struct { String8 name; ASTNode *body;} function;
@@ -29,12 +29,14 @@ struct ASTNode {
 
 String8 node_kind_name(ASTNode* node);
 
-ASTNode *make_number(Token token);
-ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right);
-
+// Operator parsing helpers
 String8 to_operator(Token token);
 bool is_binary_operator(Token token);
 i32 get_precedence(Token token);
+
+// Make ASTNodes
+ASTNode *make_number(Token token);
+ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right);
 
 // Expression parsing
 ASTNode *parse_leaf(Lexer *lexer);

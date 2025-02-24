@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,6 +91,7 @@ int main(int argc, char **argv) {
     String8 input = read_entire_file(input_file_path);
 
     Lexer lexer = {0};
+    lexer.line = 1;
     lexer.input = input;
 
     // for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {

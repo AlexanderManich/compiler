@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define assert(expression) if(!(expression)) {__builtin_trap();}
+
+#define array_count(array) ((sizeof(array)) / (sizeof(array[0])))
+
 // Basic types
 typedef int8_t   i8;
 typedef int16_t  i16;

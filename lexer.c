@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <assert.h>
 #include <string.h>
 #include "lexer.h"
 
@@ -30,9 +29,6 @@ String8 keywords[] = {
     str8_lit_comp("else"),
     str8_lit_comp("return"),
 };
-
-#define literal_tokens_count sizeof(literal_tokens) / sizeof(literal_tokens[0])
-#define keywords_count sizeof(keywords) / sizeof(keywords[0])
 
 String8 token_kind_name(Token token) {
     switch (token.kind) {
@@ -185,7 +181,7 @@ Token next_token(Lexer *lexer) {
     }
     
     // Literals
-    for (size_t i = 0; i < literal_tokens_count; i++) {
+    for (size_t i = 0; i < array_count(literal_tokens); i++) {
         // If current character is a prefix of a literal, lex the whole literal
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
             size_t text_len = literal_tokens[i].text.size;
@@ -205,7 +201,7 @@ Token next_token(Lexer *lexer) {
         token.kind = TOKEN_SYMBOL;
         
         // Keywords
-        for (u32 i = 0; i < keywords_count; ++i) {
+        for (u32 i = 0; i < array_count(keywords); ++i) {
             if (str8_compare(token.text, keywords[i])) {
                 token.kind = token_kind_from_lit(token.text);
             }

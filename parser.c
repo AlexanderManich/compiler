@@ -81,8 +81,8 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
         _print_ast(buffer, node->binary_op.left, x - offset, y + 2);
         _print_ast(buffer, node->binary_op.right, x + offset, y + 2);
     }
-    if (node->kind == NODE_INT_LITERAL) {
-        String8 i32_as_s8 = str8_from_i32(node->int_literal.value);
+    if (node->kind == NODE_INT) {
+        String8 i32_as_s8 = str8_from_i32(node->integer.value);
         memcpy(&buffer.grid[y * buffer.width + x], i32_as_s8.str, i32_as_s8.size);
     }
     if (node->kind == NODE_RETURN) {
@@ -108,8 +108,8 @@ String8 node_kind_name(ASTNode *node) {
     switch (node->kind) {
         case NODE_VAR:
             return str8_lit("Variable");
-        case NODE_INT_LITERAL:
-            return str8_lit("Integer literal");
+        case NODE_INT:
+            return str8_lit("Integer");
         case NODE_BINARY_OP:
             return str8_lit("Binary operator");
         case NODE_RETURN:
@@ -124,11 +124,10 @@ String8 node_kind_name(ASTNode *node) {
 }
 
 // Make nodes
-
 ASTNode *make_number(Token token) {
     ASTNode *node = malloc(sizeof(ASTNode));
-    node->kind = NODE_INT_LITERAL;
-    node->int_literal.value = i32_from_str8(token.text);
+    node->kind = NODE_INT;
+    node->integer.value = i32_from_str8(token.text);
     return node;
 }
 
@@ -212,31 +211,40 @@ ASTNode *parse_statement(Lexer *lexer) {
 
     ASTNode *statement = {0};
     
-    if (str8_compare(next.text, str8_lit("return"))) {
-        statement = parse_return(lexer); 
-    }
-    if (str8_compare(next.text, str8_lit("if"))) {
-        statement = parse_if(lexer);
-    }
+    if (next.kind == TOKEN_KEYWORD_RETURN) statement = parse_return(lexer);
+    if (next.kind == TOKEN_KEYWORD_IF)     statement = parse_if(lexer);
 
     parser_expect(lexer, TOKEN_SEMICOLON);
+    next_token(lexer);
 
     return statement;
 }
 
+ASTNode *parse_statements(Lexer *lexer) {
+    for (Token next = next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = next_token(lexer)) {
+        ASTNode *statement = parse_statement(lexer);
+        (void)statement;
+    }
+    return (ASTNode*){0};
+}
+
 ASTNode *parse_function(Lexer *lexer) {
+    parser_expect(lexer, TOKEN_SYMBOL);
     Token next = next_token(lexer);
-    if (next.kind != TOKEN_SYMBOL) fprintf(stderr, "Expected identifier (function name)\n");
     String8 name = next.text;
 
     parser_expect(lexer, TOKEN_LEFT_PAREN);
+    next_token(lexer);
     parser_expect(lexer, TOKEN_RIGHT_PAREN);
+    next_token(lexer);
     parser_expect(lexer, TOKEN_LEFT_CURLY);
+    next_token(lexer);
 
     ASTNode *body = parse_statement(lexer);
 
     parser_expect(lexer, TOKEN_RIGHT_CURLY);
-
+    next_token(lexer);
+ 
     ASTNode *function = make_function(name, body);
 
     return function;
@@ -246,15 +254,19 @@ ASTNode *parse_if(Lexer *lexer) {
     ASTNode *cond = parse_expression(lexer, -1);
     
     parser_expect(lexer, TOKEN_LEFT_CURLY);
+    next_token(lexer);
     ASTNode *if_body = parse_statement(lexer);
     parser_expect(lexer, TOKEN_RIGHT_CURLY);
+    next_token(lexer);
 
     ASTNode *else_body = {0};
-    if (str8_compare(peek_token(lexer).text, str8_lit("else"))) {
+    if (peek_token(lexer).kind == TOKEN_KEYWORD_ELSE)  {
         next_token(lexer);
         parser_expect(lexer, TOKEN_LEFT_CURLY);
+        next_token(lexer);
         else_body = parse_statement(lexer);
         parser_expect(lexer, TOKEN_RIGHT_CURLY);
+        next_token(lexer);
     }
 
     ASTNode *if_statement = make_if(cond, if_body, else_body);
@@ -270,8 +282,8 @@ ASTNode *parse_return(Lexer *lexer) {
 }
 
 void parser_expect(Lexer *lexer, TokenKind kind) {
-    Token token = next_token(lexer);
-    if (token.kind != kind) fprintf(stderr, "Expected: %s\n", token_from_kind(kind).text.str);
+    Token token = peek_token(lexer);
+    if (token.kind != kind) fprintf(stderr, "Expected: %s on line %lu\n", token_from_kind(kind).text.str, lexer->line);
 }
 
 i32 i32_from_str8(String8 str) {
