@@ -211,14 +211,12 @@ ASTNode *parse_statement(Lexer *lexer) {
     Token next = next_token(lexer);
 
     ASTNode *statement = {0};
-
-    if (next.kind == TOKEN_KEYWORD) {
-        if (str8_compare(next.text, str8_lit("return"))) {
-            statement = parse_return(lexer); 
-        }
-        if (str8_compare(next.text, str8_lit("if"))) {
-            statement = parse_if(lexer);
-        }
+    
+    if (str8_compare(next.text, str8_lit("return"))) {
+        statement = parse_return(lexer); 
+    }
+    if (str8_compare(next.text, str8_lit("if"))) {
+        statement = parse_if(lexer);
     }
 
     parser_expect(lexer, TOKEN_SEMICOLON);

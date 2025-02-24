@@ -40,8 +40,6 @@ String8 token_kind_name(Token token) {
             return str8_lit("end of input");
         case TOKEN_SYMBOL:
             return str8_lit("symbol");
-        case TOKEN_KEYWORD:
-            return str8_lit("keyword");
         case TOKEN_NUMBER:
             return str8_lit("number");
         case TOKEN_STRING:
@@ -76,6 +74,11 @@ String8 token_kind_name(Token token) {
             return str8_lit("less than");
         case TOKEN_GT:
             return str8_lit("greater than");
+
+        // Keywords
+        case TOKEN_KEYWORD_RETURN:
+            return str8_lit("return");
+
         case TOKEN_INVALID:
             return str8_lit("invalid token");
         default:
@@ -199,10 +202,13 @@ Token next_token(Lexer *lexer) {
             eat_char(lexer);
             token.text.size += 1;
         }
-        if (is_keyword(token)) {
-            token.kind = TOKEN_KEYWORD;
-        } else {
-            token.kind = TOKEN_SYMBOL;
+        token.kind = TOKEN_SYMBOL;
+        
+        // Keywords
+        for (u32 i = 0; i < keywords_count; ++i) {
+            if (str8_compare(token.text, keywords[i])) {
+                token.kind = token_kind_from_lit(token.text);
+            }
         }
 
         return token;
@@ -215,6 +221,7 @@ Token next_token(Lexer *lexer) {
             eat_char(lexer);
             token.text.size += 1;
         }
+
         return token;
     }
 
@@ -225,11 +232,12 @@ Token next_token(Lexer *lexer) {
     return token;
 }
 
-bool is_keyword(Token token) {
-    for (u32 i = 0; i < keywords_count; ++i) {
-        if (str8_compare(token.text, keywords[i])) return true;
-    }
-    return false;
+TokenKind token_kind_from_lit(String8 str) {
+    if (str8_compare(str, str8_lit("return"))) return TOKEN_KEYWORD_RETURN;
+    if (str8_compare(str, str8_lit("if"))) return TOKEN_KEYWORD_IF;
+    if (str8_compare(str, str8_lit("else"))) return TOKEN_KEYWORD_ELSE;
+
+    return 0;
 }
 
 Token token_from_kind(TokenKind kind) {
@@ -244,6 +252,8 @@ Token token_from_kind(TokenKind kind) {
             return token_lit(kind, "}");
         case TOKEN_SEMICOLON:
             return token_lit(kind, ";");
+        case TOKEN_SYMBOL:
+            return token_lit(kind, "Symbol");    
         default:
             fprintf(stderr, "Token from kind (%d) not implemented\n", kind);
             return (Token){0};

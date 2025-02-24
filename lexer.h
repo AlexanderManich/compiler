@@ -7,7 +7,6 @@
 typedef enum TokenKind {
     TOKEN_END = 0,
     TOKEN_SYMBOL,
-    TOKEN_KEYWORD,
     TOKEN_NUMBER,
     TOKEN_STRING,
     TOKEN_PLUS,
@@ -25,6 +24,12 @@ typedef enum TokenKind {
     TOKEN_GT_EQUAL,
     TOKEN_LT,
     TOKEN_GT,
+
+    //Keywords
+    TOKEN_KEYWORD_RETURN,
+    TOKEN_KEYWORD_IF,
+    TOKEN_KEYWORD_ELSE,
+
     TOKEN_INVALID,
 } TokenKind;
 
@@ -55,6 +60,7 @@ Token next_token(Lexer *lexer);
 bool is_keyword(Token token);
 Token peek_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
+TokenKind token_kind_from_lit(String8 str);
 String8 token_kind_name(Token token);
 Token token_from_kind(TokenKind kind);
 

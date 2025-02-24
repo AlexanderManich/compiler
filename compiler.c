@@ -28,6 +28,7 @@ String8 str8(u8 *str, u64 size) {
     return string;
 }
 
+inline
 bool str8_compare(String8 str1, String8 str2) {
     i32 result = 0;
 
