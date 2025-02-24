@@ -257,14 +257,16 @@ ASTNode *parse_if(Lexer *lexer) {
         parser_expect(lexer, TOKEN_RIGHT_CURLY);
     }
 
-    return make_if(cond, if_body, else_body);
+    ASTNode *if_statement = make_if(cond, if_body, else_body);
+
+    return if_statement;
 }
 
 ASTNode *parse_return(Lexer *lexer) {
     ASTNode *expr = parse_expression(lexer, -1);
-    ASTNode *statement = make_return(expr);
+    ASTNode *return_statement = make_return(expr);
 
-    return statement;
+    return return_statement;
 }
 
 void parser_expect(Lexer *lexer, TokenKind kind) {
