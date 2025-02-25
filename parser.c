@@ -283,7 +283,7 @@ ASTNode *parse_return(Lexer *lexer) {
 
 void parser_expect(Lexer *lexer, TokenKind kind) {
     Token token = peek_token(lexer);
-    if (token.kind != kind) fprintf(stderr, "Expected: %s on line %lu\n", token_from_kind(kind).text.str, lexer->line);
+    if (token.kind != kind) fprintf(stderr, "Expected: %d on line %lu\n", kind, lexer->current_line);
 }
 
 i32 i32_from_str8(String8 str) {

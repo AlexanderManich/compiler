@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <string.h>
 #include "lexer.h"
 
 // Literals that consist of multiple of the same character need to be earlier in the table,
@@ -12,6 +11,7 @@ TokenLiteral literal_tokens[] = {
     {.text = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY},
     {.text = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY},
     {.text = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON},
+    {.text = str8_lit_comp("==="), .kind = TOKEN_EQUAL_EQUAL_EQUAL},
     {.text = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL},
     {.text = str8_lit_comp("="),  .kind = TOKEN_EQUAL},
     {.text = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION},
@@ -22,12 +22,6 @@ TokenLiteral literal_tokens[] = {
     {.text = str8_lit_comp("+"),  .kind = TOKEN_PLUS},
     {.text = str8_lit_comp("-"),  .kind = TOKEN_MINUS},
     {.text = str8_lit_comp("*"),  .kind = TOKEN_MULT},
-};
-
-String8 keywords[] = {
-    str8_lit_comp("if"),
-    str8_lit_comp("else"),
-    str8_lit_comp("return"),
 };
 
 String8 token_kind_name(Token token) {
@@ -60,6 +54,8 @@ String8 token_kind_name(Token token) {
             return str8_lit("equal");
         case TOKEN_EQUAL_EQUAL:
             return str8_lit("equal equal");
+        case TOKEN_EQUAL_EQUAL_EQUAL:
+            return str8_lit("equal equal equal");
         case TOKEN_EXCLAMATION:
             return str8_lit("exclamation mark");
         case TOKEN_LT_EQUAL:
@@ -74,6 +70,8 @@ String8 token_kind_name(Token token) {
         // Keywords
         case TOKEN_KEYWORD_RETURN:
             return str8_lit("return");
+        case TOKEN_KEYWORD_IF:
+            return str8_lit("if");
 
         case TOKEN_INVALID:
             return str8_lit("invalid token");
@@ -98,7 +96,7 @@ bool is_number_start(char c) {
 }
 
 void trim_input_left(Lexer *lexer) {
-    while (lexer->cursor < lexer->input.size && isspace(lexer->input.str[lexer->cursor])) {
+    while (lexer->input_cursor < lexer->input.size && isspace(lexer->input.str[lexer->input_cursor])) {
         eat_char(lexer);
     }
 }
@@ -107,12 +105,12 @@ bool lexer_starts_with(Lexer *lexer, const String8 prefix) {
     if (prefix.str == 0) {
         return true;
     }
-    if (lexer->cursor + prefix.size - 1 >= lexer->input.size) {
+    if (lexer->input_cursor + prefix.size - 1 >= lexer->input.size) {
         return false;
     }
      
     for (size_t i = 0; i < prefix.size; i++) {
-        if (prefix.str[i] != lexer->input.str[lexer->cursor + i]) {
+        if (prefix.str[i] != lexer->input.str[lexer->input_cursor + i]) {
             return false;
         }
     }
@@ -120,20 +118,18 @@ bool lexer_starts_with(Lexer *lexer, const String8 prefix) {
     return true;
 }
 
-inline 
-void eat_char(Lexer *lexer) {
-    assert(lexer->cursor < lexer->input.size);
-    char c = lexer->input.str[lexer->cursor];
-    lexer->cursor += 1;
+inline void eat_char(Lexer *lexer) {
+    assert(lexer->input_cursor < lexer->input.size);
+    char c = lexer->input.str[lexer->input_cursor];
+    lexer->input_cursor += 1;
     if (c == '\n') {
-        lexer->line += 1;
-        lexer->beginning_of_line = lexer->cursor;
+        lexer->current_line += 1;
+        lexer->current_char = lexer->input_cursor;
     }
 }
 
-inline 
-char lexer_peek_next_char(Lexer *lexer) {
-    return lexer->input.str[lexer->cursor + 1];
+inline char peek_next_char(Lexer *lexer) {
+    return lexer->input.str[lexer->input_cursor + 1];
 }
 
 // Temp Hack
@@ -142,16 +138,22 @@ Token peek_token(Lexer *lexer) {
     return next_token(&temp_lexer);
 }
 
-inline 
-Token next_token(Lexer *lexer) {
+TokenKind is_keyword(Token token) {
+    if (str8_compare(token.text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
+    if (str8_compare(token.text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
+
+    return (TokenKind)0;
+}
+
+inline Token next_token(Lexer *lexer) {
     if (!lexer->input.size) return (Token){0};
 
     trim_input_left(lexer);
     
-    if (lexer->input.str[lexer->cursor] == '/') {
-        if (lexer_peek_next_char(lexer) == '/') {
-            size_t comment_line = lexer->line;
-            while (comment_line == lexer->line) {
+    if (lexer->input.str[lexer->input_cursor] == '/') {
+        if (peek_next_char(lexer) == '/') {
+            size_t comment_line = lexer->current_line;
+            while (comment_line == lexer->current_line) {
                 eat_char(lexer);
             }
         }
@@ -160,18 +162,18 @@ Token next_token(Lexer *lexer) {
     trim_input_left(lexer);
     
     Token token = {
-        .text.str = &lexer->input.str[lexer->cursor]
+        .text.str = &lexer->input.str[lexer->input_cursor]
     };
     
-    if (lexer->cursor >= lexer->input.size) return token;
+    if (lexer->input_cursor >= lexer->input.size) return token;
     
     // Strings
     // TODO: This does not work correctly
-    if (lexer->input.str[lexer->cursor] == '"') {
+    if (lexer->input.str[lexer->input_cursor] == '"') {
         token.kind = TOKEN_STRING;
         eat_char(lexer); 
-        token.text.str = &lexer->input.str[lexer->cursor]; 
-        while (lexer->cursor < lexer->input.size && lexer->input.str[lexer->cursor] != '"') {
+        token.text.str = &lexer->input.str[lexer->input_cursor]; 
+        while (lexer->input_cursor < lexer->input.size && lexer->input.str[lexer->input_cursor] != '"') {
             eat_char(lexer);
             token.text.size += 1;
         }
@@ -187,33 +189,32 @@ Token next_token(Lexer *lexer) {
             size_t text_len = literal_tokens[i].text.size;
             token.kind = literal_tokens[i].kind;
             token.text.size = text_len;
-            lexer->cursor += text_len;
+            lexer->input_cursor += text_len;
             return token;
         }
     }
 
     // Symbols and keywords
-    if (is_symbol_start(lexer->input.str[lexer->cursor])) {
-        while (lexer->cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->cursor])) {
+    if (is_symbol_start(lexer->input.str[lexer->input_cursor])) {
+        while (lexer->input_cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->input_cursor])) {
             eat_char(lexer);
             token.text.size += 1;
         }
         token.kind = TOKEN_SYMBOL;
         
         // Keywords
-        for (u32 i = 0; i < array_count(keywords); ++i) {
-            if (str8_compare(token.text, keywords[i])) {
-                token.kind = token_kind_from_lit(token.text);
-            }
+        TokenKind keyword = is_keyword(token);
+        if (keyword) {
+            token.kind = keyword;
         }
 
         return token;
     }
 
     // Numbers 
-    if (is_number_start(lexer->input.str[lexer->cursor])) {
+    if (is_number_start(lexer->input.str[lexer->input_cursor])) {
         token.kind = TOKEN_NUMBER;
-        while (lexer->cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->cursor])) {
+        while (lexer->input_cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->input_cursor])) {
             eat_char(lexer);
             token.text.size += 1;
         }
@@ -227,32 +228,3 @@ Token next_token(Lexer *lexer) {
 
     return token;
 }
-
-TokenKind token_kind_from_lit(String8 str) {
-    if (str8_compare(str, str8_lit("return"))) return TOKEN_KEYWORD_RETURN;
-    if (str8_compare(str, str8_lit("if"))) return TOKEN_KEYWORD_IF;
-    if (str8_compare(str, str8_lit("else"))) return TOKEN_KEYWORD_ELSE;
-
-    return 0;
-}
-
-Token token_from_kind(TokenKind kind) {
-    switch (kind) {
-        case TOKEN_LEFT_PAREN:
-            return token_lit(kind, "(");
-        case TOKEN_RIGHT_PAREN:
-            return token_lit(kind, ")");
-        case TOKEN_LEFT_CURLY:
-            return token_lit(kind, "{");
-        case TOKEN_RIGHT_CURLY:
-            return token_lit(kind, "}");
-        case TOKEN_SEMICOLON:
-            return token_lit(kind, ";");
-        case TOKEN_SYMBOL:
-            return token_lit(kind, "Symbol");    
-        default:
-            fprintf(stderr, "Token from kind (%d) not implemented\n", kind);
-            return (Token){0};
-    }
-}
-

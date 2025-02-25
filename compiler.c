@@ -91,15 +91,15 @@ int main(int argc, char **argv) {
     String8 input = read_entire_file(input_file_path);
 
     Lexer lexer = {0};
-    lexer.line = 1;
+    lexer.current_line = 1;
     lexer.input = input;
 
-    // for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
-    //     printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
-    // }
+    for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
+        printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
+    }
 
-    ASTNode *expr = parse_function(&lexer);
-    print_ast(expr);
+    // ASTNode *expr = parse_function(&lexer);
+    // print_ast(expr);
 
     return EXIT_SUCCESS;
 }
