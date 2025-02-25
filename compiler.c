@@ -94,9 +94,17 @@ int main(int argc, char **argv) {
     lexer.current_line = 1;
     lexer.input = input;
 
-    for (Token token = next_token(&lexer); token.kind != TOKEN_END; token = next_token(&lexer)) {
-        printf("%.*s (%s)\n", (int) token.text.size, token.text.str, token_kind_name(token).str);
+    Token *token = peek_token(&lexer, 0);
+    while (token->kind != TOKEN_END) {
+        printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
+        eat_token(&lexer);
+        token = peek_token(&lexer, 0);
     }
+
+    // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
+    //     printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
+    //     eat_token(&lexer);
+    // }
 
     // ASTNode *expr = parse_function(&lexer);
     // print_ast(expr);

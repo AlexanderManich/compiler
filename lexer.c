@@ -11,7 +11,6 @@ TokenLiteral literal_tokens[] = {
     {.text = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY},
     {.text = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY},
     {.text = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON},
-    {.text = str8_lit_comp("==="), .kind = TOKEN_EQUAL_EQUAL_EQUAL},
     {.text = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL},
     {.text = str8_lit_comp("="),  .kind = TOKEN_EQUAL},
     {.text = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION},
@@ -28,8 +27,8 @@ String8 token_kind_name(Token token) {
     switch (token.kind) {
         case TOKEN_END:
             return str8_lit("end of input");
-        case TOKEN_SYMBOL:
-            return str8_lit("symbol");
+        case TOKEN_IDENT:
+            return str8_lit("identifier");
         case TOKEN_NUMBER:
             return str8_lit("number");
         case TOKEN_STRING:
@@ -69,9 +68,9 @@ String8 token_kind_name(Token token) {
 
         // Keywords
         case TOKEN_KEYWORD_RETURN:
-            return str8_lit("return");
+            return str8_lit("return keyword");
         case TOKEN_KEYWORD_IF:
-            return str8_lit("if");
+            return str8_lit("if keyword");
 
         case TOKEN_INVALID:
             return str8_lit("invalid token");
@@ -82,11 +81,11 @@ String8 token_kind_name(Token token) {
     return (String8){0};
 }
 
-bool is_symbol_start(char c) {
+bool is_ident_start(char c) {
     return isalpha(c) || c == '_';
 }
 
-bool is_symbol(char c) {
+bool is_ident(char c) {
     return isalnum(c) || c == '_';
 }
 
@@ -132,21 +131,134 @@ inline char peek_next_char(Lexer *lexer) {
     return lexer->input.str[lexer->input_cursor + 1];
 }
 
-// Temp Hack
-Token peek_token(Lexer *lexer) {
-    Lexer temp_lexer = *lexer;
-    return next_token(&temp_lexer);
+inline Token *get_unused_token(Lexer *lexer) {
+    assert(lexer->incoming_tokens_count < MAX_CONCURRENT_TOKENS);
+
+    // Mask off bits so we wrap around if cursor + incoming is bigger than size of array
+    u64 index = (lexer->token_array_cursor + lexer->incoming_tokens_count) & (MAX_CONCURRENT_TOKENS - 1);
+    Token *result = &lexer->tokens[index];
+    result->kind           = TOKEN_INVALID;
+    result->text.size      = 0;
+    result->beginning_line = lexer->current_line;
+    result->beginning_char = lexer->current_char;
+
+    return result;
 }
 
-TokenKind is_keyword(Token token) {
-    if (str8_compare(token.text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
-    if (str8_compare(token.text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
+Token *make_token_literal(Lexer *lexer, TokenLiteral literal) {
+    Token *result = get_unused_token(lexer);
+    size_t text_len = literal.text.size; 
+    result->kind = literal.kind; 
+    result->text.str = literal.text.str;
+    result->text.size = text_len;
+    lexer->input_cursor += text_len;
+    return result;
+}
+
+Token *make_ident_or_keyword(Lexer *lexer) {
+    Token *result = get_unused_token(lexer);
+    result->text.str = &lexer->input.str[lexer->input_cursor];
+    while (lexer->input_cursor < lexer->input.size && is_ident(lexer->input.str[lexer->input_cursor])) {
+        eat_char(lexer);
+        result->text.size += 1;
+    }
+    result->kind = TOKEN_IDENT;
+    
+    // Keywords
+    TokenKind keyword = is_keyword(result);
+    if (keyword) {
+        result->kind = keyword;
+    }
+
+    return result;
+}
+
+Token *make_eof(Lexer *lexer) {
+    Token *result = get_unused_token(lexer);
+    result->kind = TOKEN_END;
+    return result;
+}
+
+Token *make_string(Lexer *lexer) {
+    Token *result = get_unused_token(lexer);
+        result->kind = TOKEN_STRING;
+        eat_char(lexer); 
+        result->text.str = &lexer->input.str[lexer->input_cursor]; 
+        while (lexer->input_cursor < lexer->input.size && lexer->input.str[lexer->input_cursor] != '"') {
+            eat_char(lexer);
+            result->text.size += 1;
+        }
+        eat_char(lexer); 
+
+        return result;
+}
+
+Token *make_number(Lexer *lexer) {
+    Token *result = get_unused_token(lexer);
+    result->kind = TOKEN_NUMBER;
+    while (lexer->input_cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->input_cursor])) {
+        eat_char(lexer);
+        result->text.size += 1;
+    }
+
+    return result;
+}
+
+Token *make_invalid(Lexer *lexer) {
+    Token *result = get_unused_token(lexer);
+    result->kind = TOKEN_INVALID;
+    result->text.size = 1;
+
+    return result;
+}
+
+Token *peek_token(Lexer *lexer, i64 lookahead_index) {
+    assert(lookahead_index < MAX_CONCURRENT_TOKENS);
+    assert(lookahead_index >= 0);
+
+    if (lookahead_index == 0) return peek_next_token(lexer);
+
+    while (lexer->incoming_tokens_count <= lookahead_index) {
+        make_new_token(lexer);
+        lexer->incoming_tokens_count++;
+    }
+
+    u64 index = (lexer->token_array_cursor + lookahead_index) & (MAX_CONCURRENT_TOKENS - 1);
+    return &lexer->tokens[index];
+}
+
+Token *peek_next_token(Lexer *lexer) {
+    if (lexer->incoming_tokens_count) {
+        assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
+        return &lexer->tokens[lexer->token_array_cursor];
+    }
+
+    make_new_token(lexer);
+    lexer->incoming_tokens_count++;
+
+    assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
+    return &lexer->tokens[lexer->token_array_cursor];
+}
+
+void eat_token(Lexer *lexer) {
+    assert(lexer->incoming_tokens_count > 0);
+    // Assert max tokens is a power of 2
+    assert((MAX_CONCURRENT_TOKENS & (MAX_CONCURRENT_TOKENS - 1)) == 0);
+
+    lexer->incoming_tokens_count--;
+    // Increment cursor and wrap around if it exceeds last index in token array;
+    lexer->token_array_cursor = (lexer->token_array_cursor + 1) & (MAX_CONCURRENT_TOKENS - 1);
+}
+
+TokenKind is_keyword(Token *token) {
+    if (str8_compare(token->text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
+    if (str8_compare(token->text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
 
     return (TokenKind)0;
 }
 
-inline Token next_token(Lexer *lexer) {
-    if (!lexer->input.size) return (Token){0};
+inline Token *make_new_token(Lexer *lexer) {
+    if (!lexer->input.size) return &(Token){0};
 
     trim_input_left(lexer);
     
@@ -161,70 +273,32 @@ inline Token next_token(Lexer *lexer) {
     
     trim_input_left(lexer);
     
-    Token token = {
-        .text.str = &lexer->input.str[lexer->input_cursor]
-    };
-    
-    if (lexer->input_cursor >= lexer->input.size) return token;
+    if (lexer->input_cursor >= lexer->input.size) return make_eof(lexer);
     
     // Strings
     // TODO: This does not work correctly
     if (lexer->input.str[lexer->input_cursor] == '"') {
-        token.kind = TOKEN_STRING;
-        eat_char(lexer); 
-        token.text.str = &lexer->input.str[lexer->input_cursor]; 
-        while (lexer->input_cursor < lexer->input.size && lexer->input.str[lexer->input_cursor] != '"') {
-            eat_char(lexer);
-            token.text.size += 1;
-        }
-        eat_char(lexer); 
-
-        return token;
+        return make_string(lexer);
     }
     
     // Literals
     for (size_t i = 0; i < array_count(literal_tokens); i++) {
         // If current character is a prefix of a literal, lex the whole literal
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
-            size_t text_len = literal_tokens[i].text.size;
-            token.kind = literal_tokens[i].kind;
-            token.text.size = text_len;
-            lexer->input_cursor += text_len;
-            return token;
+            return make_token_literal(lexer, literal_tokens[i]);
         }
     }
 
-    // Symbols and keywords
-    if (is_symbol_start(lexer->input.str[lexer->input_cursor])) {
-        while (lexer->input_cursor < lexer->input.size && is_symbol(lexer->input.str[lexer->input_cursor])) {
-            eat_char(lexer);
-            token.text.size += 1;
-        }
-        token.kind = TOKEN_SYMBOL;
-        
-        // Keywords
-        TokenKind keyword = is_keyword(token);
-        if (keyword) {
-            token.kind = keyword;
-        }
-
-        return token;
+    // Identifiers and keywords
+    if (is_ident_start(lexer->input.str[lexer->input_cursor])) {
+        return make_ident_or_keyword(lexer);
     }
 
     // Numbers 
     if (is_number_start(lexer->input.str[lexer->input_cursor])) {
-        token.kind = TOKEN_NUMBER;
-        while (lexer->input_cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->input_cursor])) {
-            eat_char(lexer);
-            token.text.size += 1;
-        }
-
-        return token;
+        return make_number(lexer);
     }
 
     eat_char(lexer);
-    token.kind = TOKEN_INVALID;
-    token.text.size = 1;
-
-    return token;
+    return make_invalid(lexer);
 }
