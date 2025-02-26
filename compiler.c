@@ -3,7 +3,7 @@
 #include <string.h>
 #include "compiler.h"
 #include "lexer.h"
-// #include "parser.h"
+#include "parser.h"
 
 static String8 shift(int *argc, char ***argv) {
     assert(*argc > 0);
@@ -84,7 +84,6 @@ int main(int argc, char **argv) {
             printf("Output filepath: %s\n", output_file_path.str);
         }
         else {
-            printf("flag: %s\n", flag.str);
             input_file_path = flag;
         }
     }
@@ -100,20 +99,20 @@ int main(int argc, char **argv) {
     lexer.current_line = 1;
     lexer.input = input;
 
-    Token *token = peek_next_token(&lexer);
-    while (token->kind != TOKEN_END) {
-        printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
-        eat_token(&lexer);
-        token = peek_next_token(&lexer);
-    }
+    // Token *token = peek_next_token(&lexer);
+    // while (token->kind != TOKEN_END) {
+    //     printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
+    //     eat_token(&lexer);
+    //     token = peek_next_token(&lexer);
+    // }
 
     // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
-    //     printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
+    //     printf("%.*s (%s), size: %lu\n", (int) token->text.size, token->text.str, token_kind_name(*token).str, token->text.size);
     //     eat_token(&lexer);
     // }
 
-    // ASTNode *expr = parse_function(&lexer);
-    // print_ast(expr);
+    ASTNode *expr = parse_expression(&lexer, -1);
+    print_ast(expr);
 
     return EXIT_SUCCESS;
 }

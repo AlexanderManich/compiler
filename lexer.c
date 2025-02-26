@@ -145,7 +145,7 @@ inline Token *get_unused_token(Lexer *lexer) {
     return result;
 }
 
-Token *make_token_literal(Lexer *lexer, TokenLiteral literal) {
+Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal) {
     Token *result = get_unused_token(lexer);
     size_t text_len = literal.text.size; 
     result->kind = literal.kind; 
@@ -155,7 +155,7 @@ Token *make_token_literal(Lexer *lexer, TokenLiteral literal) {
     return result;
 }
 
-Token *make_ident_or_keyword(Lexer *lexer) {
+Token *lexer_make_ident_or_keyword(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
     result->text.str = &lexer->input.str[lexer->input_cursor];
     while (lexer->input_cursor < lexer->input.size && is_ident(lexer->input.str[lexer->input_cursor])) {
@@ -173,13 +173,14 @@ Token *make_ident_or_keyword(Lexer *lexer) {
     return result;
 }
 
-Token *make_eof(Lexer *lexer) {
+Token *lexer_make_eof(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
     result->kind = TOKEN_END;
+    result->text = (String8){0};
     return result;
 }
 
-Token *make_string(Lexer *lexer) {
+Token *lexer_make_string(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
         result->kind = TOKEN_STRING;
         eat_char(lexer); 
@@ -193,7 +194,7 @@ Token *make_string(Lexer *lexer) {
         return result;
 }
 
-Token *make_number(Lexer *lexer) {
+Token *lexer_make_number(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
     result->kind = TOKEN_NUMBER;
     result->text.str = &lexer->input.str[lexer->input_cursor];
@@ -205,7 +206,7 @@ Token *make_number(Lexer *lexer) {
     return result;
 }
 
-Token *make_invalid(Lexer *lexer) {
+Token *lexer_make_invalid(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
     result->kind = TOKEN_INVALID;
     result->text.size = 1;
@@ -274,32 +275,32 @@ inline Token *make_new_token(Lexer *lexer) {
     
     trim_input_left(lexer);
     
-    if (lexer->input_cursor >= lexer->input.size) return make_eof(lexer);
+    if (lexer->input_cursor >= lexer->input.size) return lexer_make_eof(lexer);
     
     // Strings
     // TODO: This does not work correctly
     if (lexer->input.str[lexer->input_cursor] == '"') {
-        return make_string(lexer);
+        return lexer_make_string(lexer);
     }
     
     // Literals
     for (size_t i = 0; i < array_count(literal_tokens); i++) {
         // If current character is a prefix of a literal, lex the whole literal
         if (lexer_starts_with(lexer, literal_tokens[i].text)) {
-            return make_token_literal(lexer, literal_tokens[i]);
+            return lexer_make_token_literal(lexer, literal_tokens[i]);
         }
     }
 
     // Identifiers and keywords
     if (is_ident_start(lexer->input.str[lexer->input_cursor])) {
-        return make_ident_or_keyword(lexer);
+        return lexer_make_ident_or_keyword(lexer);
     }
 
     // Numbers 
     if (is_number_start(lexer->input.str[lexer->input_cursor])) {
-        return make_number(lexer);
+        return lexer_make_number(lexer);
     }
 
     eat_char(lexer);
-    return make_invalid(lexer);
+    return lexer_make_invalid(lexer);
 }

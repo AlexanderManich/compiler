@@ -67,19 +67,24 @@ struct Lexer {
     u64 incoming_tokens_count;
 };
 
-TokenKind is_keyword(Token *token);
+Token *lexer_make_eof(Lexer *lexer);
+Token *lexer_make_invalid(Lexer *lexer);
+Token *lexer_make_number(Lexer *lexer);
+Token *lexer_make_string(Lexer *lexer);
+Token *lexer_make_ident_or_keyword(Lexer *lexer);
+Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal);
 
-Token *get_unused_token(Lexer *lexer);
 Token *make_new_token(Lexer *lexer);
-char peek_next_char(Lexer *lexer);
-void eat_token(Lexer *lexer);
+Token *get_unused_token(Lexer *lexer);
 Token *peek_token(Lexer *lexer, i64 lookahead_index);
 Token *peek_next_token(Lexer *lexer);
+void eat_token(Lexer *lexer);
 
 void eat_char(Lexer *lexer);
+char peek_next_char(Lexer *lexer);
 
 String8 token_kind_name(Token token);
-Token token_from_kind(TokenKind kind);
+TokenKind is_keyword(Token *token);
 
 
 #endif //LEXER_H
