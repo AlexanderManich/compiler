@@ -196,6 +196,7 @@ Token *make_string(Lexer *lexer) {
 Token *make_number(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
     result->kind = TOKEN_NUMBER;
+    result->text.str = &lexer->input.str[lexer->input_cursor];
     while (lexer->input_cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->input_cursor])) {
         eat_char(lexer);
         result->text.size += 1;

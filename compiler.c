@@ -3,7 +3,7 @@
 #include <string.h>
 #include "compiler.h"
 #include "lexer.h"
-#include "parser.h"
+// #include "parser.h"
 
 static String8 shift(int *argc, char ***argv) {
     assert(*argc > 0);
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
     String8 program = shift(&argc, &argv);
     printf("Program: %s\n", program.str);
 
-    String8 input_file_path;
+    String8 input_file_path = {0};
 
     while (argc > 0) {
         String8 flag = shift(&argc, &argv);
@@ -84,8 +84,14 @@ int main(int argc, char **argv) {
             printf("Output filepath: %s\n", output_file_path.str);
         }
         else {
+            printf("flag: %s\n", flag.str);
             input_file_path = flag;
         }
+    }
+
+    if (!input_file_path.size) {
+        fprintf(stderr, "ERROR: No input provided\n");
+        return EXIT_FAILURE;
     }
 
     String8 input = read_entire_file(input_file_path);
@@ -94,11 +100,11 @@ int main(int argc, char **argv) {
     lexer.current_line = 1;
     lexer.input = input;
 
-    Token *token = peek_token(&lexer, 0);
+    Token *token = peek_next_token(&lexer);
     while (token->kind != TOKEN_END) {
         printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
         eat_token(&lexer);
-        token = peek_token(&lexer, 0);
+        token = peek_next_token(&lexer);
     }
 
     // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
