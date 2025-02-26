@@ -39,10 +39,10 @@ struct Token {
     TokenKind kind;
     String8 text;
 
-    i64 beginning_line;
-    i64 beginning_char;
-    i64 end_line;
-    i64 end_char; 
+    i32 start_line;
+    i32 start_char;
+    i32 end_line;
+    i32 end_char; 
 };
 
 typedef struct TokenLiteral TokenLiteral;
@@ -53,7 +53,7 @@ struct TokenLiteral {
 
 // This needs to be a power of 2, because we are masking off bits when calculating the index
 // into the array, so it acts like a ring buffer.
-#define MAX_CONCURRENT_TOKENS 4
+#define MAX_CONCURRENT_TOKENS 8
 
 typedef struct Lexer Lexer;
 struct Lexer {

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 typedef enum NodeKind {
     NODE_VAR,
@@ -53,7 +54,7 @@ ASTNode *parse_function(Lexer *lexer);
 ASTNode *parse_if(Lexer *lexer);
 ASTNode *parse_return(Lexer *lexer);
 
-void parser_expect(Lexer *lexer, TokenKind kind);
+void print_parse_error(Lexer *lexer, const char *fmt, ...);
 
 u64 calc_ast_tree_depth(ASTNode *tree);
 void print_ast(ASTNode *tree);

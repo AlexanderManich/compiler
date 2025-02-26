@@ -139,8 +139,8 @@ inline Token *get_unused_token(Lexer *lexer) {
     Token *result = &lexer->tokens[index];
     result->kind           = TOKEN_INVALID;
     result->text.size      = 0;
-    result->beginning_line = lexer->current_line;
-    result->beginning_char = lexer->current_char;
+    result->start_line = lexer->current_line;
+    result->start_char = lexer->current_char;
 
     return result;
 }

@@ -167,32 +167,31 @@ ASTNode *make_if(ASTNode *cond, ASTNode *if_body, ASTNode *else_body) {
 // Parsing
 
 ASTNode *parse_leaf(Lexer *lexer) {
-    Token *next = peek_next_token(lexer);
+    Token next = *peek_next_token(lexer);
     eat_token(lexer);
     ASTNode* result = {0};
-    switch (next->kind) {
+    switch (next.kind) {
         case TOKEN_NUMBER: {
-            result = make_number(next);
+            result = make_number(&next);
             return result;
         }
         default:
-            fprintf(stderr, "Error: Unexpected token '%.*s'\n", (int)next->text.size, next->text.str);
+            fprintf(stderr, "Error: Unexpected token '%.*s'\n", (int)next.text.size, next.text.str);
             exit(EXIT_FAILURE);
     }
 }
 
 ASTNode* parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence) {
-    Token *next = peek_next_token(lexer);
+    Token next = *peek_next_token(lexer);
 
-    if (!is_binary_operator(next)) return left;
+    if (!is_binary_operator(&next)) return left;
 
-    i32 next_prec = get_precedence(next);
+    i32 next_prec = get_precedence(&next);
 
     if (min_precedence <= next_prec) {
         eat_token(lexer);
         ASTNode *right = parse_expression(lexer, next_prec);
-        fprintf(stderr, "next: %s, size: %lu\n", token_kind_name(*next).str, next->text.size);
-        return make_binary(left, to_operator(next), right);
+        return make_binary(left, to_operator(&next), right);
     }
     else {
         return left;
@@ -211,14 +210,18 @@ ASTNode *parse_expression(Lexer *lexer, i32 min_precedence) {
 }
 
 ASTNode *parse_statement(Lexer *lexer) {
-    Token *next = peek_next_token(lexer);
+    Token next = *peek_next_token(lexer);
+    eat_token(lexer);
 
     ASTNode *statement = {0};
     
-    if (next->kind == TOKEN_KEYWORD_RETURN) statement = parse_return(lexer);
-    if (next->kind == TOKEN_KEYWORD_IF)     statement = parse_if(lexer);
+    if (next.kind == TOKEN_KEYWORD_RETURN) statement = parse_return(lexer);
+    if (next.kind == TOKEN_KEYWORD_IF)     statement = parse_if(lexer);
 
-    parser_expect(lexer, TOKEN_SEMICOLON);
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_SEMICOLON) {
+        print_parse_error(lexer, "Expected ;\n");
+    }
     eat_token(lexer);
 
     return statement;
@@ -234,21 +237,39 @@ ASTNode *parse_statements(Lexer *lexer) {
 }
 
 ASTNode *parse_function(Lexer *lexer) {
-    parser_expect(lexer, TOKEN_IDENT);
-    Token *next = peek_next_token(lexer);
-    String8 name = next->text;
+    Token next = *peek_next_token(lexer);
+    eat_token(lexer);
+    
+    if (next.kind != TOKEN_IDENT) {
+        print_parse_error(lexer, "Expected identifier");
+    }
+    
+    String8 name = next.text;
+
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_LEFT_PAREN) {
+        print_parse_error(lexer, "Expected (\n");
+    }
     eat_token(lexer);
 
-    parser_expect(lexer, TOKEN_LEFT_PAREN);
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_RIGHT_PAREN) {
+        print_parse_error(lexer, "Expected )\n");
+    }
     eat_token(lexer);
-    parser_expect(lexer, TOKEN_RIGHT_PAREN);
-    eat_token(lexer);
-    parser_expect(lexer, TOKEN_LEFT_CURLY);
+
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_LEFT_CURLY) {
+        print_parse_error(lexer, "Expected {\n");
+    }
     eat_token(lexer);
 
     ASTNode *body = parse_statement(lexer);
 
-    parser_expect(lexer, TOKEN_RIGHT_CURLY);
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_RIGHT_CURLY) {
+        print_parse_error(lexer, "Expected }\n");
+    }
     eat_token(lexer);
  
     ASTNode *function = make_function(name, body);
@@ -259,20 +280,12 @@ ASTNode *parse_function(Lexer *lexer) {
 ASTNode *parse_if(Lexer *lexer) {
     ASTNode *cond = parse_expression(lexer, -1);
     
-    parser_expect(lexer, TOKEN_LEFT_CURLY);
-    eat_token(lexer);
     ASTNode *if_body = parse_statement(lexer);
-    parser_expect(lexer, TOKEN_RIGHT_CURLY);
-    eat_token(lexer);
 
     ASTNode *else_body = {0};
     if (peek_token(lexer, 1)->kind == TOKEN_KEYWORD_ELSE)  {
         eat_token(lexer);
-        parser_expect(lexer, TOKEN_LEFT_CURLY);
-        eat_token(lexer);
         else_body = parse_statement(lexer);
-        parser_expect(lexer, TOKEN_RIGHT_CURLY);
-        eat_token(lexer);
     }
 
     ASTNode *if_statement = make_if(cond, if_body, else_body);
@@ -281,16 +294,20 @@ ASTNode *parse_if(Lexer *lexer) {
 }
 
 ASTNode *parse_return(Lexer *lexer) {
-    eat_token(lexer);
     ASTNode *expr = parse_expression(lexer, -1);
     ASTNode *return_statement = make_return(expr);
 
     return return_statement;
 }
 
-void parser_expect(Lexer *lexer, TokenKind kind) {
-    Token *token = peek_next_token(lexer);
-    if (token->kind != kind) fprintf(stderr, "Expected: %d on line %lu\n", kind, lexer->current_line);
+void print_parse_error(Lexer *lexer, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    fprintf(stderr, "[Line %ld] ", lexer->current_line);
+    vfprintf(stderr, fmt, args);
+
+    va_end(args);
 }
 
 i32 i32_from_str8(String8 str) {
