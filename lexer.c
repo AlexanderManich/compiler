@@ -165,9 +165,9 @@ Token *lexer_make_ident_or_keyword(Lexer *lexer) {
     result->kind = TOKEN_IDENT;
     
     // Keywords
-    TokenKind keyword = is_keyword(result);
-    if (keyword) {
-        result->kind = keyword;
+    TokenKind keyword_kind = is_keyword(result);
+    if (keyword_kind) {
+        result->kind = keyword_kind;
     }
 
     return result;

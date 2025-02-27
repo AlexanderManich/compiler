@@ -4,6 +4,12 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include "arena.h"
+
+typedef struct Parser Parser;
+struct Parser {
+    Arena arena;
+};
 
 typedef enum NodeKind {
     NODE_VAR,

@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
-#define assert(expression) if(!(expression)) {__builtin_trap();}
+// #define assert(expression) if(!(expression)) {__builtin_trap();}
 
 #define array_count(array) ((sizeof(array)) / (sizeof(array[0])))
 

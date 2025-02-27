@@ -55,6 +55,8 @@ struct TokenLiteral {
 // into the array, so it acts like a ring buffer.
 #define MAX_CONCURRENT_TOKENS 8
 
+struct Parser;
+
 typedef struct Lexer Lexer;
 struct Lexer {
     String8 input;
@@ -65,6 +67,8 @@ struct Lexer {
     Token tokens[MAX_CONCURRENT_TOKENS];
     u64 token_array_cursor; 
     u64 incoming_tokens_count;
+
+    struct Parser *parser;
 };
 
 Token *lexer_make_eof(Lexer *lexer);

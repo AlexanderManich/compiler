@@ -8,6 +8,7 @@
         "*.scss.liquid": "liquid-scss",
         "lexer.h": "c",
         "assert.h": "c",
-        "random": "cpp"
+        "random": "cpp",
+        "parser.h": "c"
     }
 }
