@@ -124,15 +124,15 @@ String8 node_kind_name(ASTNode *node) {
 }
 
 // Make nodes
-ASTNode *make_number(Token *token) {
-    ASTNode *node = malloc(sizeof(ASTNode));
+ASTNode *make_number(Arena *arena, Token *token) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_INT;
     node->integer.value = i32_from_str8(token->text);
     return node;
 }
 
-ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right) {
-    ASTNode *node = malloc(sizeof(ASTNode));
+ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_BINARY_OP;
     node->binary_op.left = left;
     node->binary_op.op = operator;
@@ -140,23 +140,23 @@ ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right) {
     return node;
 }
 
-ASTNode *make_return(ASTNode *expr) {
-    ASTNode *node = malloc(sizeof(ASTNode));
+ASTNode *make_return(Arena *arena, ASTNode *expr) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_RETURN;
     node->return_val.expr = expr;
     return node;
 }
 
-ASTNode *make_function(String8 name, ASTNode *body) {
-    ASTNode *node = malloc(sizeof(ASTNode));
+ASTNode *make_function(Arena *arena, String8 name, ASTNode *body) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_FUNCTION;
     node->function.name = name;
     node->function.body = body;
     return node;
 }
 
-ASTNode *make_if(ASTNode *cond, ASTNode *if_body, ASTNode *else_body) {
-    ASTNode *node = malloc(sizeof(ASTNode));
+ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_IF;
     node->_if.cond = cond;
     node->_if.if_body = if_body;
@@ -172,7 +172,7 @@ ASTNode *parse_leaf(Lexer *lexer) {
     ASTNode* result = {0};
     switch (next.kind) {
         case TOKEN_NUMBER: {
-            result = make_number(&next);
+            result = make_number(&lexer->parser->arena, &next);
             return result;
         }
         default:
@@ -191,7 +191,7 @@ ASTNode* parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_preced
     if (min_precedence <= next_prec) {
         eat_token(lexer);
         ASTNode *right = parse_expression(lexer, next_prec);
-        return make_binary(left, to_operator(&next), right);
+        return make_binary(&lexer->parser->arena, left, to_operator(&next), right);
     }
     else {
         return left;
@@ -272,7 +272,7 @@ ASTNode *parse_function(Lexer *lexer) {
     }
     eat_token(lexer);
  
-    ASTNode *function = make_function(name, body);
+    ASTNode *function = make_function(&lexer->parser->arena, name, body);
 
     return function;
 }
@@ -288,14 +288,14 @@ ASTNode *parse_if(Lexer *lexer) {
         else_body = parse_statement(lexer);
     }
 
-    ASTNode *if_statement = make_if(cond, if_body, else_body);
+    ASTNode *if_statement = make_if(&lexer->parser->arena, cond, if_body, else_body);
 
     return if_statement;
 }
 
 ASTNode *parse_return(Lexer *lexer) {
     ASTNode *expr = parse_expression(lexer, -1);
-    ASTNode *return_statement = make_return(expr);
+    ASTNode *return_statement = make_return(&lexer->parser->arena, expr);
 
     return return_statement;
 }

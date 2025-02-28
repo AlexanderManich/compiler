@@ -4,6 +4,7 @@
 #include "compiler.h"
 #include "lexer.h"
 #include "parser.h"
+#include "arena.h"
 
 static String8 shift(int *argc, char ***argv) {
     assert(*argc > 0);
@@ -47,7 +48,7 @@ bool str8_compare(String8 str1, String8 str2) {
     return result;
 }
 
-String8 read_entire_file(String8 file_path) {
+String8 read_entire_file(Arena *arena, String8 file_path) {
     String8 result = {0};
     char *file_path_cstr = (char*)file_path.str;
     FILE *file = fopen(file_path_cstr, "rb");
@@ -59,7 +60,7 @@ String8 read_entire_file(String8 file_path) {
     fseek(file, 0, SEEK_END);
     result.size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    result.str = malloc(result.size);
+    result.str = push_array(arena, String8, 1);
     fread(result.str, result.size, 1, file);
     fclose(file);
 
@@ -67,6 +68,12 @@ String8 read_entire_file(String8 file_path) {
 }
 
 int main(int argc, char **argv) {
+
+    u64 global_arena_size = MB(1);
+    u8 global_arena_buffer[global_arena_size];
+    Arena global_arena = {0};
+    arena_init(&global_arena, global_arena_buffer, global_arena_size);
+
     String8 program = shift(&argc, &argv);
     printf("Program: %s\n", program.str);
 
@@ -93,18 +100,15 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    String8 input = read_entire_file(input_file_path);
+    String8 input = read_entire_file(&global_arena, input_file_path);
+
+    Parser parser = {0};
+    parser.arena = global_arena;
 
     Lexer lexer = {0};
     lexer.current_line = 1;
     lexer.input = input;
-
-    // Token *token = peek_next_token(&lexer);
-    // while (token->kind != TOKEN_END) {
-    //     printf("%.*s (%s)\n", (int) token->text.size, token->text.str, token_kind_name(*token).str);
-    //     eat_token(&lexer);
-    //     token = peek_next_token(&lexer);
-    // }
+    lexer.parser = &parser;
 
     // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
     //     printf("%.*s (%s), size: %lu\n", (int) token->text.size, token->text.str, token_kind_name(*token).str, token->text.size);

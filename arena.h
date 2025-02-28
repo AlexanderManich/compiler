@@ -1,32 +1,39 @@
+#ifndef ARENA_H
+#define ARENA_H
+
 #include "compiler.h"
+#include "string.h"
 
 typedef struct Arena Arena;
 struct Arena {
-    u64 pos;
     u8 *base;
+    u64 pos;
     u64 size;
 };
 
-// create or destroy a 'stack' - an "arena"
-Arena *ArenaAlloc(void);
-void ArenaRelease(Arena *arena);
+typedef struct TempArena TempArena;
+struct TempArena {
+    Arena *arena;
+    u64 pos;
+};
 
-// push some bytes onto the 'stack' - the way to allocate
-void *ArenaPush(Arena *arena, u64 size);
-void *ArenaPushZero(Arena *arena, u64 size);
+Arena *arena_init(Arena *arena, u8 *base, u64 size);
+void arena_release(Arena *arena);
 
-// some macro helpers that I've found nice:
-#define PushArray(arena, type, count) (type *)ArenaPush((arena), sizeof(type)*(count))
-#define PushArrayZero(arena, type, count) (type *)ArenaPushZero((arena), sizeof(type)*(count))
-#define PushStruct(arena, type) PushArray((arena), (type), 1)
-#define PushStructZero(arena, type) PushArrayZero((arena), (type), 1)
+void *arena_push(Arena *arena, u64 size, u64 align);
+void *arena_push_zero(Arena *arena, u64 size);
 
-// pop some bytes off the 'stack' - the way to free
+#define ARENA_DEFAULT_ALIGN 16
+#define push_array(arena, type, count) memory_zero((type *)push_array_no_zero(arena, type, count), sizeof(type) * (count))
+#define push_array_no_zero(arena, type, count) (type *)arena_push((arena), sizeof(type)*(count), (ARENA_DEFAULT_ALIGN))
+
 void ArenaPop(Arena *arena, u64 size);
+void arena_pop_to(Arena *arena, u64 pos);
+void arena_clear(Arena *arena);
 
-// get the # of bytes currently allocated.
-u64 ArenaGetPos(Arena *arena);
+u64 arena_pos(Arena *arena);
 
-// also some useful popping helpers:
-void ArenaSetPosBack(Arena *arena, u64 pos);
-void ArenaClear(Arena *arena);
+TempArena temp_begin(Arena *arena);
+void temp_end(TempArena temp);
+
+#endif //ARENA_H

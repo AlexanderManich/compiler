@@ -21,6 +21,13 @@ typedef uint64_t u64;
 typedef float    f32;
 typedef double   f64;
 
+#define KB(n) ((u64)(n) * 1024)
+#define MB(n) ((u64)(KB(n)) * 1024)
+#define GB(n) ((u64)(MB(n)) * 1024)
+
+#define align_pow2(x,b) (((x) + (b) - 1) & (~((b) - 1)))
+#define memory_zero(s, n) (memset(s, 0, n));
+
 // String types
 typedef struct String8 String8;
 struct String8 {

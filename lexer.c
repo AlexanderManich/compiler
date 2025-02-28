@@ -220,7 +220,8 @@ Token *peek_token(Lexer *lexer, i64 lookahead_index) {
 
     if (lookahead_index == 0) return peek_next_token(lexer);
 
-    while (lexer->incoming_tokens_count <= lookahead_index) {
+    // Figure this comparison out so we dont cast lookahead_index
+    while (lexer->incoming_tokens_count <= (u64)lookahead_index) {
         make_new_token(lexer);
         lexer->incoming_tokens_count++;
     }

@@ -42,8 +42,11 @@ bool is_binary_operator(Token *token);
 i32 get_precedence(Token *token);
 
 // Make ASTNodes
-ASTNode *make_number(Token *token);
-ASTNode *make_binary(ASTNode *left, String8 operator, ASTNode *right);
+ASTNode *make_number(Arena *arena, Token *token); 
+ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
+ASTNode *make_return(Arena *arena, ASTNode *expr);
+ASTNode *make_function(Arena *arena, String8 name, ASTNode *body);
+ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
 
 // Expression parsing
 ASTNode *parse_leaf(Lexer *lexer);
