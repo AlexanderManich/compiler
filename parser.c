@@ -220,7 +220,7 @@ ASTNode *parse_statement(Lexer *lexer) {
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_SEMICOLON) {
-        print_parse_error(lexer, "Expected ;\n");
+        print_parse_error(lexer, &next, "Expected ';'");
     }
     eat_token(lexer);
 
@@ -241,26 +241,26 @@ ASTNode *parse_function(Lexer *lexer) {
     eat_token(lexer);
     
     if (next.kind != TOKEN_IDENT) {
-        print_parse_error(lexer, "Expected identifier");
+        print_parse_error(lexer, &next, "Expected identifier");
     }
     
     String8 name = next.text;
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_LEFT_PAREN) {
-        print_parse_error(lexer, "Expected (\n");
+        print_parse_error(lexer, &next, "Expected '('");
     }
     eat_token(lexer);
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_RIGHT_PAREN) {
-        print_parse_error(lexer, "Expected )\n");
+        print_parse_error(lexer, &next, "Expected ')'");
     }
     eat_token(lexer);
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_LEFT_CURLY) {
-        print_parse_error(lexer, "Expected {\n");
+        print_parse_error(lexer, &next, "Expected '{'");
     }
     eat_token(lexer);
 
@@ -268,7 +268,7 @@ ASTNode *parse_function(Lexer *lexer) {
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_RIGHT_CURLY) {
-        print_parse_error(lexer, "Expected }\n");
+        print_parse_error(lexer, &next, "Expected '}'");
     }
     eat_token(lexer);
  
@@ -300,14 +300,17 @@ ASTNode *parse_return(Lexer *lexer) {
     return return_statement;
 }
 
-void print_parse_error(Lexer *lexer, const char *fmt, ...) {
+void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-
-    fprintf(stderr, "[Line %ld] ", lexer->current_line);
+    fprintf(stderr, "l%ld:c%d: ", lexer->current_line, token->end_char - token->start_char);
     vfprintf(stderr, fmt, args);
+    fprintf(stderr, " before '%.*s' \n", (int) token->text.size, token->text.str);
+    fprintf(stderr, "%.*s\n", (int)lexer->input_cursor, lexer->input.str + lexer->current_char);
+    fprintf(stderr, "%*s^\n", (token->end_char - token->start_char) - 1, "");
 
     va_end(args);
+    exit(0);
 }
 
 i32 i32_from_str8(String8 str) {

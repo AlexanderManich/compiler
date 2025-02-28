@@ -106,7 +106,6 @@ int main(int argc, char **argv) {
     parser.arena = global_arena;
 
     Lexer lexer = {0};
-    lexer.current_line = 1;
     lexer.input = input;
     lexer.parser = &parser;
 

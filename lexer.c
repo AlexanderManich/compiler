@@ -136,9 +136,10 @@ inline Token *get_unused_token(Lexer *lexer) {
 
     // Mask off bits so we wrap around if cursor + incoming is bigger than size of array
     u64 index = (lexer->token_array_cursor + lexer->incoming_tokens_count) & (MAX_CONCURRENT_TOKENS - 1);
-    Token *result = &lexer->tokens[index];
-    result->kind           = TOKEN_INVALID;
-    result->text.size      = 0;
+
+    Token *result      = &lexer->tokens[index];
+    result->kind       = TOKEN_INVALID;
+    result->text.size  = 0;
     result->start_line = lexer->current_line;
     result->start_char = lexer->current_char;
 
@@ -146,11 +147,13 @@ inline Token *get_unused_token(Lexer *lexer) {
 }
 
 Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal) {
-    Token *result = get_unused_token(lexer);
-    size_t text_len = literal.text.size; 
-    result->kind = literal.kind; 
-    result->text.str = literal.text.str;
-    result->text.size = text_len;
+    Token *result        = get_unused_token(lexer);
+    size_t text_len      = literal.text.size; 
+    result->kind         = literal.kind; 
+    result->text.str     = literal.text.str;
+    result->text.size    = text_len;
+    result->end_line     = lexer->current_line;
+    result->end_char     = result->start_char + text_len;
     lexer->input_cursor += text_len;
     return result;
 }
@@ -169,6 +172,9 @@ Token *lexer_make_ident_or_keyword(Lexer *lexer) {
     if (keyword_kind) {
         result->kind = keyword_kind;
     }
+
+    result->end_line = lexer->current_line;
+    result->end_char = result->start_char + result->text.size;
 
     return result;
 }
@@ -191,6 +197,9 @@ Token *lexer_make_string(Lexer *lexer) {
         }
         eat_char(lexer); 
 
+        result->end_line = lexer->current_line;
+        result->end_char = result->start_char + result->text.size;
+
         return result;
 }
 
@@ -202,6 +211,9 @@ Token *lexer_make_number(Lexer *lexer) {
         eat_char(lexer);
         result->text.size += 1;
     }
+
+    result->end_line = lexer->current_line;
+    result->end_char = result->start_char + result->text.size;
 
     return result;
 }
