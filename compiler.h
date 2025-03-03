@@ -21,6 +21,8 @@ typedef uint64_t u64;
 typedef float    f32;
 typedef double   f64;
 
+#define shift(xs, xs_size) (assert((xs_size) > 0), (xs_size)--, *(xs)++)
+
 #define KB(n) ((u64)(n) * 1024)
 #define MB(n) ((u64)(KB(n)) * 1024)
 #define GB(n) ((u64)(MB(n)) * 1024)
@@ -50,9 +52,10 @@ u64 calc_cstring_length(char *cstr);
 
 String8 str8(u8 *str, u64 size);
 
-#define str8_cstring(s) str8((u8 *)(s), calc_cstring_length(s))
-#define str8_lit(s)     (String8){(u8 *)(s), sizeof(s) - 1}
+#define str8_cstring(s)  str8((u8 *)(s), calc_cstring_length(s))
+#define str8_lit(s)      (String8){(u8 *)(s), sizeof(s) - 1}
 #define str8_lit_comp(s) {(u8 *)(s), sizeof(s) - 1}
+#define str8_varg(s)     (int)((s).size), ((s).str)
 
 bool str8_compare(const String8 str1, const String8 str2);
 

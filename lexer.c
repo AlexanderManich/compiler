@@ -75,7 +75,7 @@ String8 token_kind_name(Token token) {
         case TOKEN_INVALID:
             return str8_lit("invalid token");
         default:
-            fprintf(stderr, "ERROR: No name defined for token: %.*s\n", (int) token.text.size, token.text.str);
+            fprintf(stderr, "ERROR: No name defined for token: %.*s\n", str8_varg(token.text));
     }
 
     return (String8){0};
@@ -147,14 +147,16 @@ inline Token *get_unused_token(Lexer *lexer) {
 }
 
 Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal) {
-    Token *result        = get_unused_token(lexer);
-    size_t text_len      = literal.text.size; 
-    result->kind         = literal.kind; 
-    result->text.str     = literal.text.str;
-    result->text.size    = text_len;
-    result->end_line     = lexer->current_line;
-    result->end_char     = result->start_char + text_len;
+    Token *result     = get_unused_token(lexer);
+    size_t text_len   = literal.text.size; 
+    result->kind      = literal.kind; 
+    result->text.str  = literal.text.str;
+    result->text.size = text_len;
+    result->end_line  = lexer->current_line;
+    result->end_char  = result->start_char + text_len;
+
     lexer->input_cursor += text_len;
+    
     return result;
 }
 
@@ -220,7 +222,7 @@ Token *lexer_make_number(Lexer *lexer) {
 
 Token *lexer_make_invalid(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
-    result->kind = TOKEN_INVALID;
+    result->kind= TOKEN_INVALID;
     result->text.size = 1;
 
     return result;

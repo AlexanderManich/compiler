@@ -6,15 +6,6 @@
 #include "parser.h"
 #include "arena.h"
 
-static String8 shift(int *argc, char ***argv) {
-    assert(*argc > 0);
-    char *string = **argv;
-    String8 result = str8_cstring(string);
-    *argc -= 1;
-    *argv += 1;
-    return result;
-}
-
 u64 calc_cstring_length(char *cstr) {
     u64 i = 0;
     for(; cstr[i]; i += 1);
@@ -60,7 +51,7 @@ String8 read_entire_file(Arena *arena, String8 file_path) {
     fseek(file, 0, SEEK_END);
     result.size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    result.str = push_array(arena, String8, 1);
+    result.str = push_array(arena, u8, result.size);
     fread(result.str, result.size, 1, file);
     fclose(file);
 
@@ -74,21 +65,22 @@ int main(int argc, char **argv) {
     Arena global_arena = {0};
     arena_init(&global_arena, global_arena_buffer, global_arena_size);
 
-    String8 program = shift(&argc, &argv);
-    printf("Program: %s\n", program.str);
+    char *program_cstr = shift(argv, argc);
+    String8 program = str8_cstring(program_cstr);
+    printf("Program: %s\n", program_cstr);
 
     String8 input_file_path = {0};
-
     while (argc > 0) {
-        String8 flag = shift(&argc, &argv);
+        char *flag_cstr = shift(argv, argc);
+        String8 flag = str8_cstring(flag_cstr);
         if (str8_compare(flag, str8_lit("-o"))) {
 
             if (argc <= 0) {
                 fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);
                 exit(EXIT_FAILURE);
             }
-            String8 output_file_path = shift(&argc, &argv);
-            printf("Output filepath: %s\n", output_file_path.str);
+            char *output_file_path_cstr = shift(argv, argc);
+            printf("Output filepath: %s\n", output_file_path_cstr);
         }
         else {
             input_file_path = flag;
@@ -110,7 +102,7 @@ int main(int argc, char **argv) {
     lexer.parser = &parser;
 
     // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
-    //     printf("%.*s (%s), size: %lu\n", (int) token->text.size, token->text.str, token_kind_name(*token).str, token->text.size);
+    //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
     //     eat_token(&lexer);
     // }
 

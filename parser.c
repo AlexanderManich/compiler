@@ -94,7 +94,7 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
     if (node->kind == NODE_FUNCTION) {
         // TODO: Change from sprintf, when i have str8 format string
         sprintf((char *)(buffer.grid + y * buffer.width + x),
-        "%s (%.*s)", node_kind_name(node).str, (int)node->function.name.size, node->function.name.str);
+        "%s (%.*s)", node_kind_name(node).str, str8_varg(node->function.name));
 
         buffer.grid[(y + 1) * buffer.width + x] = '|';
 
@@ -176,7 +176,7 @@ ASTNode *parse_leaf(Lexer *lexer) {
             return result;
         }
         default:
-            fprintf(stderr, "Error: Unexpected token '%.*s'\n", (int)next.text.size, next.text.str);
+            fprintf(stderr, "Error: Unexpected token '%.*s'\n", str8_varg(next.text));
             exit(EXIT_FAILURE);
     }
 }
@@ -228,12 +228,24 @@ ASTNode *parse_statement(Lexer *lexer) {
 }
 
 ASTNode *parse_statements(Lexer *lexer) {
-    for (Token *next = peek_next_token(lexer); next->kind != TOKEN_RIGHT_CURLY && next->kind != TOKEN_END; next = peek_next_token(lexer)) {
+    ASTNode* first = NULL;
+    ASTNode* last  = NULL;
+
+    for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
-        eat_token(lexer);
-        (void)statement;
+        statement->block.next = NULL;
+
+        if (!first) {
+            first = statement;
+            last = statement;
+        }
+        else {
+            last->block.next = statement;
+            last = statement;
+        }
     }
-    return (ASTNode*){0};
+    
+    return first;
 }
 
 ASTNode *parse_function(Lexer *lexer) {
@@ -263,8 +275,7 @@ ASTNode *parse_function(Lexer *lexer) {
         print_parse_error(lexer, &next, "Expected '{'");
     }
     eat_token(lexer);
-
-    ASTNode *body = parse_statement(lexer);
+    ASTNode *body = parse_statements(lexer);
 
     next = *peek_next_token(lexer);
     if (next.kind != TOKEN_RIGHT_CURLY) {
@@ -305,12 +316,11 @@ void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...) {
     va_start(args, fmt);
     fprintf(stderr, "l%ld:c%d: ", lexer->current_line, token->end_char - token->start_char);
     vfprintf(stderr, fmt, args);
-    fprintf(stderr, " before '%.*s' \n", (int) token->text.size, token->text.str);
+    fprintf(stderr, " before '%.*s' \n", str8_varg(token->text));
     fprintf(stderr, "%.*s\n", (int)lexer->input_cursor, lexer->input.str + lexer->current_char);
     fprintf(stderr, "%*s^\n", (token->end_char - token->start_char) - 1, "");
 
     va_end(args);
-    exit(0);
 }
 
 i32 i32_from_str8(String8 str) {

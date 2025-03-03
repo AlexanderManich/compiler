@@ -13,8 +13,8 @@ void *arena_push(Arena *arena, u64 size, u64 align) {
     
     assert(pos_post <= arena->size && "Arena ran out of space");
 
-    void *result = arena->base + pos_post;
-    arena->pos += pos_post;
+    void *result = arena->base + pos_pre;
+    arena->pos = pos_post;
 
     return result;
 }

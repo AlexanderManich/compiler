@@ -18,6 +18,7 @@ typedef enum NodeKind {
     NODE_RETURN,
     NODE_FUNCTION,
     NODE_IF,
+    NODE_BLOCK
 } ASTNodeKind;
 
 typedef struct ASTNode ASTNode;
@@ -31,6 +32,7 @@ struct ASTNode {
         struct { String8 name; ASTNode *body;} function;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { struct ASTVar var; ASTNode *expr;} var_assign;
+        struct { ASTNode* next; } block;
     };
 };
 
