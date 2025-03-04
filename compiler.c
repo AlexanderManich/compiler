@@ -66,24 +66,22 @@ int main(int argc, char **argv) {
     arena_init(&global_arena, global_arena_buffer, global_arena_size);
 
     char *program_cstr = shift(argv, argc);
-    String8 program = str8_cstring(program_cstr);
     printf("Program: %s\n", program_cstr);
 
     String8 input_file_path = {0};
     while (argc > 0) {
         char *flag_cstr = shift(argv, argc);
-        String8 flag = str8_cstring(flag_cstr);
-        if (str8_compare(flag, str8_lit("-o"))) {
+        if (str8_compare(str8_cstring(flag_cstr), str8_lit("-o"))) {
 
             if (argc <= 0) {
-                fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);
+                fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag_cstr);
                 exit(EXIT_FAILURE);
             }
             char *output_file_path_cstr = shift(argv, argc);
             printf("Output filepath: %s\n", output_file_path_cstr);
         }
         else {
-            input_file_path = flag;
+            input_file_path = str8_cstring(flag_cstr);
         }
     }
 
@@ -101,13 +99,13 @@ int main(int argc, char **argv) {
     lexer.input = input;
     lexer.parser = &parser;
 
-    // for (Token *token = peek_token(&lexer, 0); token->kind != TOKEN_END; token = peek_token(&lexer, 0)) {
-    //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
-    //     eat_token(&lexer);
-    // }
+    for (Token *token = peek_next_token(&lexer); token->kind != TOKEN_END; token = peek_next_token(&lexer)) {
+        printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
+        eat_token(&lexer);
+    }
 
-    ASTNode *expr = parse_function(&lexer);
-    print_ast(expr);
+    // ASTNode *expr = parse_function(&lexer);
+    // print_ast(expr);
 
     return EXIT_SUCCESS;
 }
