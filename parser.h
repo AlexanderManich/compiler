@@ -30,11 +30,22 @@ struct ASTNode {
         struct { ASTNode *left; ASTNode *right; String8 op; } binary_op;
         struct { ASTNode *expr;} return_val;
         struct { String8 name; ASTNode *body;} function;
+        struct { ASTNode **statements; u64 size; u64 capacity; } block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { struct ASTVar var; ASTNode *expr;} var_assign;
-        struct { ASTNode* next; } block;
     };
 };
+
+// #define BLOCK_DA_INIT_CAP 256
+// #define block_da_append(arena, da, statement)                                                          \
+//     do {                                                                                 \
+//         if ((da)->block.size >= (da)->block.capacity) {                                             \
+//             (da)->block.capacity = (da)->block.capacity == 0 ? BLOCK_DA_INIT_CAP : (da)->block.capacity*2;   \
+//             (da)->block.statements = push_array((arena), ASTNode, (da)->block.capacity*sizeof(*(da)->block.statements)); \
+//         }                                                                                \
+//                                                                                          \
+//         (da)->block.statements[(da)->block.size++] = (statement);                                             \
+//     } while (0)
 
 String8 node_kind_name(ASTNode* node);
 
@@ -59,7 +70,7 @@ ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_preced
 ASTNode *parse_statement(Lexer *lexer);
 ASTNode *parse_statements(Lexer *lexer);
 
-ASTNode *parse_function(Lexer *lexer);
+ASTNode* parse_function(Lexer *lexer);
 
 // Keywords parsing
 ASTNode *parse_if(Lexer *lexer);
@@ -67,11 +78,12 @@ ASTNode *parse_return(Lexer *lexer);
 
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
+
 u64 calc_ast_tree_depth(ASTNode *tree);
-void print_ast(ASTNode *tree);
-CharGrid _print_ast(CharGrid buffer, ASTNode *tree, u32 x, u32 y);
+void print_ast(Arena *arena, ASTNode *tree);
+CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *tree, u32 x, u32 y);
 
 i32 i32_from_str8(String8 str);
-String8 str8_from_i32(i32 num);
+String8 str8_from_i32(Arena *arena, i32 num);
 
 #endif //PARSER_H

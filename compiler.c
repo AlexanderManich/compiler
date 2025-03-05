@@ -99,13 +99,13 @@ int main(int argc, char **argv) {
     lexer.input = input;
     lexer.parser = &parser;
 
-    for (Token *token = peek_next_token(&lexer); token->kind != TOKEN_END; token = peek_next_token(&lexer)) {
-        printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
-        eat_token(&lexer);
-    }
+    // for (Token *token = peek_next_token(&lexer); token->kind != TOKEN_END; token = peek_next_token(&lexer)) {
+    //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
+    //     eat_token(&lexer);
+    // }
 
-    // ASTNode *expr = parse_function(&lexer);
-    // print_ast(expr);
+    ASTNode *expr = parse_function(&lexer);
+    print_ast(&global_arena, expr);
 
     return EXIT_SUCCESS;
 }

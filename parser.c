@@ -45,30 +45,29 @@ u64 calc_ast_tree_depth(ASTNode *tree) {
         return 1 + calc_ast_tree_depth(tree->return_val.expr);
     }
     if (tree->kind == NODE_FUNCTION) {
-        return 1 + calc_ast_tree_depth(tree->function.body);
+        // return 1 + calc_ast_tree_depth(tree->function.body);
     }
 
     return 1;
 }
 
-void print_ast(ASTNode *tree) {
+void print_ast(Arena *arena, ASTNode *tree) {
     CharGrid buffer = {0};
     buffer.height   = calc_ast_tree_depth(tree) * 2;
     buffer.width    = buffer.height * 10;
     buffer.grid     = malloc(buffer.height * buffer.width);
     memset(buffer.grid, ' ', buffer.height * buffer.width);
 
-    _print_ast(buffer, tree, 20, 0);
+    _print_ast(arena, buffer, tree, 20, 0);
     for (u32 y = 0; y < buffer.height; ++y) {
         for (u32 x = 0; x < buffer.width; ++x) {
                 putchar((char)buffer.grid[y * buffer.width + x]);
         }
         printf("\n");
     }
-    free(buffer.grid);
 }
 
-CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
+CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) {
     // BUG: When a binary nodes' left and right children are also bin-nodes, the childrens children
     // overwrite each other sometimes. Other things are surely wrong as well.
     if (node->kind == NODE_BINARY_OP) {
@@ -78,18 +77,18 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
         
         u32 offset = 4;
 
-        _print_ast(buffer, node->binary_op.left, x - offset, y + 2);
-        _print_ast(buffer, node->binary_op.right, x + offset, y + 2);
+        _print_ast(arena, buffer, node->binary_op.left, x - offset, y + 2);
+        _print_ast(arena, buffer, node->binary_op.right, x + offset, y + 2);
     }
     if (node->kind == NODE_INT) {
-        String8 i32_as_s8 = str8_from_i32(node->integer.value);
+        String8 i32_as_s8 = str8_from_i32(arena ,node->integer.value);
         memcpy(&buffer.grid[y * buffer.width + x], i32_as_s8.str, i32_as_s8.size);
     }
     if (node->kind == NODE_RETURN) {
         String8 node_name = node_kind_name(node);
         memcpy(&buffer.grid[y * buffer.width + x], node_name.str, node_name.size);
         memcpy(&buffer.grid[(y + 1) * buffer.width + x], "|", 1);
-        _print_ast(buffer, node->return_val.expr, x, y + 2);
+        _print_ast(arena, buffer, node->return_val.expr, x, y + 2);
     }
     if (node->kind == NODE_FUNCTION) {
         // TODO: Change from sprintf, when i have str8 format string
@@ -98,7 +97,15 @@ CharGrid _print_ast(CharGrid buffer, ASTNode *node, u32 x, u32 y) {
 
         buffer.grid[(y + 1) * buffer.width + x] = '|';
 
-        _print_ast(buffer, node->function.body, x, y + 2);
+        _print_ast(arena, buffer, node->function.body, x, y + 2);
+    }
+    if (node->kind == NODE_BLOCK) {
+        u64 size = node->block.size;
+        for (u64 i = 0; i < size; i++) {
+            fprintf(stderr, "i: %ld\n", i);
+            fprintf(stderr, "block_size: %ld\n", node->block.size);
+            _print_ast(arena, buffer, node->block.statements[i], x, y);
+        }
     }
 
     return buffer;
@@ -227,25 +234,35 @@ ASTNode *parse_statement(Lexer *lexer) {
     return statement;
 }
 
+void block_da_append(Arena *arena, ASTNode *da, ASTNode *statement) {
+    if (da->block.size >= da->block.capacity) {
+        da->block.capacity = da->block.capacity == 0 ? 256 : da->block.capacity*2;
+        da->block.statements = push_array(arena, ASTNode, da->block.capacity * sizeof(*da->block.statements))
+    }
+    da->block.statements[da->block.size++] = statement;
+}
+// #define BLOCK_DA_INIT_CAP 256
+// #define block_da_append(arena, da, statement)                                                          \
+//     do {                                                                                 \
+//         if ((da)->block.size >= (da)->block.capacity) {                                             \
+//             (da)->block.capacity = (da)->block.capacity == 0 ? BLOCK_DA_INIT_CAP : (da)->block.capacity*2;   \
+//             (da)->block.statements = push_array((arena), ASTNode, (da)->block.capacity*sizeof(*(da)->block.statements)); \
+//         }                                                                                \
+//                                                                                          \
+//         (da)->block.statements[(da)->block.size++] = (statement);                                             \
+//     } while (0)
+
 ASTNode *parse_statements(Lexer *lexer) {
-    ASTNode* first = NULL;
-    ASTNode* last  = NULL;
+    ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
 
     for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
-        statement->block.next = NULL;
-
-        if (!first) {
-            first = statement;
-            last = statement;
-        }
-        else {
-            last->block.next = statement;
-            last = statement;
-        }
+        block_da_append(&lexer->parser->arena, statements, statement);
     }
-    
-    return first;
+
+    statements->kind = NODE_BLOCK;
+
+    return statements;
 }
 
 ASTNode *parse_function(Lexer *lexer) {
@@ -340,7 +357,7 @@ i32 i32_from_str8(String8 str) {
     return result;
 }
 
-String8 str8_from_i32(i32 num) {
+String8 str8_from_i32(Arena *arena, i32 num) {
     String8 str = {0};
 
     if (num == 0) {
@@ -355,7 +372,7 @@ String8 str8_from_i32(i32 num) {
         length++;
     }
 
-    str.str = malloc(length * sizeof(u8));
+    str.str = push_array(arena, u8, length);
     str.size = length;
 
     while (num > 0) {

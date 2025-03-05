@@ -6,6 +6,7 @@
         "*.js.liquid": "liquid-javascript",
         "*.css.liquid": "liquid-css",
         "*.scss.liquid": "liquid-scss",
+        "*.cpp": "c",
         "lexer.h": "c",
         "assert.h": "c",
         "random": "cpp",
@@ -15,6 +16,8 @@
         "functional": "cpp",
         "tuple": "cpp",
         "type_traits": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "string_view": "c",
+        "initializer_list": "c"
     }
 }
