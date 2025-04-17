@@ -13,6 +13,8 @@ struct Parser {
 
 typedef enum NodeKind {
     NODE_VAR,
+    NODE_VAR_DECL,
+    NODE_VAR_ASSIGN,
     NODE_INT,
     NODE_BINARY_OP,
     NODE_RETURN,
@@ -25,14 +27,15 @@ typedef struct ASTNode ASTNode;
 struct ASTNode {
     ASTNodeKind kind;
     union {
-        struct ASTVar { String8 name; } var;
-        struct { i32 value; } integer;
-        struct { ASTNode *left; ASTNode *right; String8 op; } binary_op;
+        struct { i32 value;} integer;
+        struct { String8 name;} variable;
+        struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
         struct { String8 name; ASTNode *body;} function;
-        struct { ASTNode **statements; u64 size; u64 capacity; } block;
+        struct { ASTNode **statements; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
-        struct { struct ASTVar var; ASTNode *expr;} var_assign;
+        struct { String8 name; ASTNode *expr;} var_assign;
+        struct { String8 name; ASTNode *expr;} var_decl;
     };
 };
 
@@ -60,6 +63,9 @@ ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *rig
 ASTNode *make_return(Arena *arena, ASTNode *expr);
 ASTNode *make_function(Arena *arena, String8 name, ASTNode *body);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
+ASTNode *make_variable(Arena *arena, Token *token);
+ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);
+ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
 
 // Expression parsing
 ASTNode *parse_leaf(Lexer *lexer);
@@ -71,6 +77,9 @@ ASTNode *parse_statement(Lexer *lexer);
 ASTNode *parse_statements(Lexer *lexer);
 
 ASTNode* parse_function(Lexer *lexer);
+
+ASTNode* parse_var_decl(Lexer *lexer, String8 name);
+ASTNode* parse_var_assign(Lexer *lexer, String8 name);
 
 // Keywords parsing
 ASTNode *parse_if(Lexer *lexer);

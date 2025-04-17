@@ -11,6 +11,7 @@ TokenLiteral literal_tokens[] = {
     {.text = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY},
     {.text = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY},
     {.text = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON},
+    {.text = str8_lit_comp(":"),  .kind = TOKEN_COLON},
     {.text = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL},
     {.text = str8_lit_comp("="),  .kind = TOKEN_EQUAL},
     {.text = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION},
@@ -49,6 +50,8 @@ String8 token_kind_name(Token token) {
             return str8_lit("right curly bracket");
         case TOKEN_SEMICOLON:
             return str8_lit("semicolon");
+        case TOKEN_COLON:
+            return str8_lit("colon");
         case TOKEN_EQUAL:
             return str8_lit("equal");
         case TOKEN_EQUAL_EQUAL:
