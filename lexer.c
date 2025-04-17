@@ -5,27 +5,28 @@
 
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
+// Since we are using designated initializers we need to make sure this is true in the token kind enum.
 TokenLiteral literal_tokens[] = {
-    {.text = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN},
-    {.text = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN},
-    {.text = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY},
-    {.text = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY},
-    {.text = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON},
-    {.text = str8_lit_comp(":"),  .kind = TOKEN_COLON},
-    {.text = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL},
-    {.text = str8_lit_comp("="),  .kind = TOKEN_EQUAL},
-    {.text = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION},
-    {.text = str8_lit_comp("<="), .kind = TOKEN_LT_EQUAL},
-    {.text = str8_lit_comp(">="), .kind = TOKEN_GT_EQUAL},
-    {.text = str8_lit_comp("<"),  .kind = TOKEN_LT},
-    {.text = str8_lit_comp(">"),  .kind = TOKEN_GT},
-    {.text = str8_lit_comp("+"),  .kind = TOKEN_PLUS},
-    {.text = str8_lit_comp("-"),  .kind = TOKEN_MINUS},
-    {.text = str8_lit_comp("*"),  .kind = TOKEN_MULT},
+    [TOKEN_LEFT_PAREN]  = {.symbol = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN,  .precedence = 150},
+    [TOKEN_RIGHT_PAREN] = {.symbol = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN, .precedence = 150},
+    [TOKEN_LEFT_CURLY]  = {.symbol = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY,  .precedence = -1},
+    [TOKEN_RIGHT_CURLY] = {.symbol = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY, .precedence = -1},
+    [TOKEN_SEMICOLON]   = {.symbol = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON,   .precedence = -1},
+    [TOKEN_COLON]       = {.symbol = str8_lit_comp(":"),  .kind = TOKEN_COLON,       .precedence = -1},
+    [TOKEN_EQUAL_EQUAL] = {.symbol = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL, .precedence = 90},
+    [TOKEN_EQUAL]       = {.symbol = str8_lit_comp("="),  .kind = TOKEN_EQUAL,       .precedence = 10},
+    [TOKEN_EXCLAMATION] = {.symbol = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION, .precedence = 140},
+    [TOKEN_LT_EQUAL]    = {.symbol = str8_lit_comp("<="), .kind = TOKEN_LT_EQUAL,    .precedence = 80},
+    [TOKEN_GT_EQUAL]    = {.symbol = str8_lit_comp(">="), .kind = TOKEN_GT_EQUAL,    .precedence = 80},
+    [TOKEN_LT]          = {.symbol = str8_lit_comp("<"),  .kind = TOKEN_LT,          .precedence = 80},
+    [TOKEN_GT]          = {.symbol = str8_lit_comp(">"),  .kind = TOKEN_GT,          .precedence = 80},
+    [TOKEN_PLUS]        = {.symbol = str8_lit_comp("+"),  .kind = TOKEN_PLUS,        .precedence = 120},
+    [TOKEN_MINUS]       = {.symbol = str8_lit_comp("-"),  .kind = TOKEN_MINUS,       .precedence = 120},
+    [TOKEN_MULT]        = {.symbol = str8_lit_comp("*"),  .kind = TOKEN_MULT,        .precedence = 130},
 };
 
-String8 token_kind_name(Token token) {
-    switch (token.kind) {
+String8 token_kind_name(TokenKind kind) {
+    switch (kind) {
         case TOKEN_END:
             return str8_lit("end of input");
         case TOKEN_IDENT:
@@ -56,8 +57,6 @@ String8 token_kind_name(Token token) {
             return str8_lit("equal");
         case TOKEN_EQUAL_EQUAL:
             return str8_lit("equal equal");
-        case TOKEN_EQUAL_EQUAL_EQUAL:
-            return str8_lit("equal equal equal");
         case TOKEN_EXCLAMATION:
             return str8_lit("exclamation mark");
         case TOKEN_LT_EQUAL:
@@ -78,7 +77,7 @@ String8 token_kind_name(Token token) {
         case TOKEN_INVALID:
             return str8_lit("invalid token");
         default:
-            fprintf(stderr, "ERROR: No name defined for token: %.*s\n", str8_varg(token.text));
+            fprintf(stderr, "ERROR: No name defined for token kind: %d\n", kind);
     }
 
     return (String8){0};
@@ -151,9 +150,9 @@ inline Token *get_unused_token(Lexer *lexer) {
 
 Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal) {
     Token *result     = get_unused_token(lexer);
-    size_t text_len   = literal.text.size; 
+    size_t text_len   = literal.symbol.size; 
     result->kind      = literal.kind; 
-    result->text.str  = literal.text.str;
+    result->text.str  = literal.symbol.str;
     result->text.size = text_len;
     result->end_line  = lexer->current_line;
     result->end_char  = result->start_char + text_len;
@@ -304,7 +303,7 @@ inline Token *make_new_token(Lexer *lexer) {
     // Literals
     for (size_t i = 0; i < array_count(literal_tokens); i++) {
         // If current character is a prefix of a literal, lex the whole literal
-        if (lexer_starts_with(lexer, literal_tokens[i].text)) {
+        if (lexer_starts_with(lexer, literal_tokens[i].symbol)) {
             return lexer_make_token_literal(lexer, literal_tokens[i]);
         }
     }

@@ -1,14 +1,15 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#pragma once
+
 #include <stdlib.h>
 #include "compiler.h"
 
 typedef enum TokenKind {
-    TOKEN_END = 0,
-    TOKEN_IDENT,
-    TOKEN_NUMBER,
-    TOKEN_STRING,
+    // Literals. These need to ALWAYS be defined the start of the enum, because we have table of token literals,
+    // that is defined using these enums values as designated initializers, which we use to then do linear search
+    // over the table when we lex literals.
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_MULT,
@@ -18,14 +19,19 @@ typedef enum TokenKind {
     TOKEN_RIGHT_CURLY,
     TOKEN_SEMICOLON,
     TOKEN_COLON,
-    TOKEN_EQUAL,
     TOKEN_EQUAL_EQUAL,
-    TOKEN_EQUAL_EQUAL_EQUAL,
+    TOKEN_EQUAL,
     TOKEN_EXCLAMATION,
     TOKEN_LT_EQUAL,
     TOKEN_GT_EQUAL,
     TOKEN_LT,
     TOKEN_GT,
+
+    // Uhh misc idk
+    TOKEN_END,
+    TOKEN_IDENT,
+    TOKEN_NUMBER,
+    TOKEN_STRING,
 
     //Keywords
     TOKEN_KEYWORD_RETURN,
@@ -48,9 +54,12 @@ struct Token {
 
 typedef struct TokenLiteral TokenLiteral;
 struct TokenLiteral {
-    String8 text;
+    String8 symbol;
     TokenKind kind;
+    i32 precedence;
 };
+
+extern TokenLiteral literal_tokens[];
 
 // This needs to be a power of 2, because we are masking off bits when calculating the index
 // into the array, so it acts like a ring buffer.
@@ -88,7 +97,7 @@ void eat_token(Lexer *lexer);
 void eat_char(Lexer *lexer);
 char peek_next_char(Lexer *lexer);
 
-String8 token_kind_name(Token token);
+String8 token_kind_name(TokenKind kind);
 TokenKind is_keyword(Token *token);
 
 

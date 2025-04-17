@@ -19,20 +19,8 @@ bool is_binary_operator(Token *token) {
     }
 }
 
-i32 get_precedence(Token *token) {
-    switch (token->kind) {
-        case TOKEN_EQUAL_EQUAL:
-            return 9;
-        case TOKEN_GT:
-            return 10; 
-        case TOKEN_PLUS:
-        case TOKEN_MINUS:
-            return 12;
-        case TOKEN_MULT:
-            return 13;
-        default:
-            return -1;
-    }
+i32 get_precedence_from_kind(TokenKind kind) {
+    return literal_tokens[kind].precedence;
 }
 
 u64 calc_ast_tree_depth(ASTNode *tree) {
@@ -102,8 +90,9 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     }
     if (node->kind == NODE_FUNCTION) {
         // TODO: Change from sprintf, when i have str8 format string
-        sprintf((char *)(buffer.grid + y * buffer.width + x),
-        "%s (%.*s)", node_kind_name(node).str, str8_varg(node->function.name));
+        String8 node_name = node_kind_name(node);
+        sprintf((char *)(buffer.grid + y * buffer.width + (x - node_name.size / 2)),
+        "%s (%.*s)", node_name.str, str8_varg(node->function.name));
 
         buffer.grid[(y + 1) * buffer.width + x] = '|';
 
@@ -116,8 +105,9 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
         }
     }
     if (node->kind == NODE_VAR_DECL) {
-        sprintf((char *)(buffer.grid + y * buffer.width + x),
-        "%s (%.*s)", node_kind_name(node).str, str8_varg(node->var_decl.name));
+        String8 node_name = node_kind_name(node);
+        sprintf((char *)(buffer.grid + y * buffer.width + (x - node_name.size / 2)),
+        "%s (%.*s)", node_name.str, str8_varg(node->var_decl.name));
         memcpy(&buffer.grid[(y + 1) * buffer.width + x], "|", 1);
         _print_ast(arena, buffer, node->var_decl.expr, x, y + 2);
     }
@@ -238,7 +228,7 @@ ASTNode* parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_preced
 
     if (!is_binary_operator(&next)) return left;
 
-    i32 next_prec = get_precedence(&next);
+    i32 next_prec = get_precedence_from_kind(next.kind);
 
     if (min_precedence <= next_prec) {
         eat_token(lexer);

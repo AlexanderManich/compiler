@@ -27,7 +27,7 @@ void *arena_push_zero(Arena *arena, u64 size);
 #define push_array(arena, type, count) memory_zero((type *)push_array_no_zero(arena, type, count), sizeof(type) * (count))
 #define push_array_no_zero(arena, type, count) (type *)arena_push((arena), sizeof(type)*(count), (ARENA_DEFAULT_ALIGN))
 
-void ArenaPop(Arena *arena, u64 size);
+void arena_pop(Arena *arena, u64 size);
 void arena_pop_to(Arena *arena, u64 pos);
 void arena_clear(Arena *arena);
 

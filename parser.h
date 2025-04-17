@@ -55,7 +55,7 @@ String8 node_kind_name(ASTNode* node);
 // Operator parsing helpers
 String8 to_operator(Token *token);
 bool is_binary_operator(Token *token);
-i32 get_precedence(Token *token);
+i32 get_precedence_from_kind(TokenKind kind);
 
 // Make ASTNodes
 ASTNode *make_number(Arena *arena, Token *token); 
