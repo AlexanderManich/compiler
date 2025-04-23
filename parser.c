@@ -20,7 +20,7 @@ bool is_binary_operator(Token *token) {
 }
 
 i32 get_precedence_from_kind(TokenKind kind) {
-    return literal_tokens[kind].precedence;
+    return token_literals[kind].precedence;
 }
 
 u64 calc_ast_tree_depth(ASTNode *tree) {
@@ -36,7 +36,7 @@ u64 calc_ast_tree_depth(ASTNode *tree) {
         return 1 + calc_ast_tree_depth(tree->return_val.expr);
     }
     if (tree->kind == NODE_FUNCTION) {
-        // return 1 + calc_ast_tree_depth(tree->function.body);
+        return 1 + calc_ast_tree_depth(tree->function.body);
     }
 
     return 1;
@@ -66,7 +66,7 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
         return buffer;
     }
     if (node->kind == NODE_BINARY_OP) {
-        memcpy(&buffer.grid[y * buffer.width + x], node->binary_op.op.str, node->binary_op.op.size);
+        memcpy(&buffer.grid[y * buffer.width + x - 1], node->binary_op.op.str, node->binary_op.op.size);
         buffer.grid[(y + 1) * buffer.width + x - 1] = '/';
         buffer.grid[(y + 1) * buffer.width + x + 1] = '\\';
         
@@ -91,7 +91,7 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     if (node->kind == NODE_FUNCTION) {
         // TODO: Change from sprintf, when i have str8 format string
         String8 node_name = node_kind_name(node);
-        sprintf((char *)(buffer.grid + y * buffer.width + (x - node_name.size / 2)),
+        sprintf((char *)(buffer.grid + y * buffer.width + (x - (node_name.size + node->function.name.size) / 2)),
         "%s (%.*s)", node_name.str, str8_varg(node->function.name));
 
         buffer.grid[(y + 1) * buffer.width + x] = '|';
@@ -101,12 +101,12 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     if (node->kind == NODE_BLOCK) {
         u64 size = node->block.size;
         for (u64 i = 0; i < size; i++) {
-            _print_ast(arena, buffer, node->block.statements[i], x + i * 15, y);
+            _print_ast(arena, buffer, node->block.statements[i], x + i * 20, y);
         }
     }
     if (node->kind == NODE_VAR_DECL) {
         String8 node_name = node_kind_name(node);
-        sprintf((char *)(buffer.grid + y * buffer.width + (x - node_name.size / 2)),
+        sprintf((char *)(buffer.grid + y * buffer.width + (x - (node_name.size + node->var_decl.name.size)/ 2)),
         "%s (%.*s)", node_name.str, str8_varg(node->var_decl.name));
         memcpy(&buffer.grid[(y + 1) * buffer.width + x], "|", 1);
         _print_ast(arena, buffer, node->var_decl.expr, x, y + 2);
@@ -118,19 +118,19 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
 String8 node_kind_name(ASTNode *node) {
     switch (node->kind) {
         case NODE_VAR:
-            return str8_lit("Variable");
+            return str8_lit("var");
         case NODE_VAR_DECL:
-            return str8_lit("Variable decl");
+            return str8_lit("var decl");
         case NODE_VAR_ASSIGN:
-            return str8_lit("Variable assign");
+            return str8_lit("var assign");
         case NODE_INT:
-            return str8_lit("Integer");
+            return str8_lit("integer");
         case NODE_BINARY_OP:
-            return str8_lit("Binary operator");
+            return str8_lit("binary operator");
         case NODE_RETURN:
-            return str8_lit("Return");
+            return str8_lit("return");
         case NODE_FUNCTION:
-            return str8_lit("Function");
+            return str8_lit("function");
         default:
             fprintf(stderr, "No name defined for node: %d", node->kind);
     }

@@ -6,7 +6,7 @@
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 // Since we are using designated initializers we need to make sure this is true in the token kind enum.
-TokenLiteral literal_tokens[] = {
+TokenLiteral token_literals[] = {
     [TOKEN_LEFT_PAREN]  = {.symbol = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN,  .precedence = 150},
     [TOKEN_RIGHT_PAREN] = {.symbol = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN, .precedence = 150},
     [TOKEN_LEFT_CURLY]  = {.symbol = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY,  .precedence = -1},
@@ -301,10 +301,10 @@ inline Token *make_new_token(Lexer *lexer) {
     }
     
     // Literals
-    for (size_t i = 0; i < array_count(literal_tokens); i++) {
+    for (size_t i = 0; i < array_count(token_literals); i++) {
         // If current character is a prefix of a literal, lex the whole literal
-        if (lexer_starts_with(lexer, literal_tokens[i].symbol)) {
-            return lexer_make_token_literal(lexer, literal_tokens[i]);
+        if (lexer_starts_with(lexer, token_literals[i].symbol)) {
+            return lexer_make_token_literal(lexer, token_literals[i]);
         }
     }
 
