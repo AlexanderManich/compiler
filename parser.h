@@ -85,6 +85,7 @@ ASTNode* parse_var_assign(Lexer *lexer, String8 name);
 ASTNode *parse_if(Lexer *lexer);
 ASTNode *parse_return(Lexer *lexer);
 
+void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
 

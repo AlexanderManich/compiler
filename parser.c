@@ -270,10 +270,7 @@ ASTNode *parse_statement(Lexer *lexer) {
                 eat_token(lexer);
                 statement = parse_var_decl(lexer, name);
                 next = *peek_next_token(lexer);
-                if (next.kind != TOKEN_SEMICOLON) {
-                    print_parse_error(lexer, &next, "Expected ';'");
-                }
-                eat_token(lexer);
+                parser_expect(lexer, &next, TOKEN_SEMICOLON);
             }
         }
         else if (next.kind == TOKEN_EQUAL) {
@@ -284,10 +281,7 @@ ASTNode *parse_statement(Lexer *lexer) {
     if (next.kind == TOKEN_KEYWORD_RETURN) {
         statement = parse_return(lexer);
         next = *peek_next_token(lexer);
-        if (next.kind != TOKEN_SEMICOLON) {
-            print_parse_error(lexer, &next, "Expected ';'");
-        }
-        eat_token(lexer);
+        parser_expect(lexer, &next, TOKEN_SEMICOLON);
     }
 
     next = *peek_next_token(lexer);
@@ -317,38 +311,24 @@ ASTNode *parse_statements(Lexer *lexer) {
 
 ASTNode *parse_function(Lexer *lexer) {
     Token next = *peek_next_token(lexer);
-    eat_token(lexer);
     
-    if (next.kind != TOKEN_IDENT) {
-        print_parse_error(lexer, &next, "Expected identifier");
-    }
+    parser_expect(lexer, &next, TOKEN_IDENT);
     
     String8 name = next.text;
 
     next = *peek_next_token(lexer);
-    if (next.kind != TOKEN_LEFT_PAREN) {
-        print_parse_error(lexer, &next, "Expected '('");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
 
     next = *peek_next_token(lexer);
-    if (next.kind != TOKEN_RIGHT_PAREN) {
-        print_parse_error(lexer, &next, "Expected ')'");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
 
     next = *peek_next_token(lexer);
-    if (next.kind != TOKEN_LEFT_CURLY) {
-        print_parse_error(lexer, &next, "Expected '{'");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+
     ASTNode *body = parse_statements(lexer);
 
     next = *peek_next_token(lexer);
-    if (next.kind != TOKEN_RIGHT_CURLY) {
-        print_parse_error(lexer, &next, "Expected '}'");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
  
     ASTNode *function = make_function(&lexer->parser->arena, name, body);
 
@@ -371,19 +351,12 @@ ASTNode *parse_if(Lexer *lexer) {
     ASTNode *cond = parse_expression(lexer, -1);
     
     Token next = *peek_next_token(lexer);
-
-    if (next.kind != TOKEN_LEFT_CURLY) {
-        print_parse_error(lexer, &next, "Expected '{");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
 
     ASTNode *if_body = parse_statement(lexer);
 
     next = *peek_next_token(lexer);
-    if (next.kind != TOKEN_RIGHT_CURLY) {
-        print_parse_error(lexer, &next, "Expected '}");
-    }
-    eat_token(lexer);
+    parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
 
     ASTNode *else_body = {0};
     if (peek_token(lexer, 1)->kind == TOKEN_KEYWORD_ELSE)  {
@@ -401,6 +374,13 @@ ASTNode *parse_return(Lexer *lexer) {
     ASTNode *return_statement = make_return(&lexer->parser->arena, expr);
 
     return return_statement;
+}
+
+void parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
+    if (token->kind != expected) {
+        print_parse_error(lexer, token, "Expected '%s'", token_kind_name(expected));
+    }
+    eat_token(lexer);
 }
 
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...) {
