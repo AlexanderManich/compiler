@@ -263,20 +263,10 @@ ASTNode *parse_statement(Lexer *lexer) {
     if (next.kind == TOKEN_IDENT) {
         String8 name = next.text;
         next = *peek_next_token(lexer);
-        if (next.kind == TOKEN_COLON) {
-            eat_token(lexer);
-            next = *peek_next_token(lexer);
-            if (next.kind == TOKEN_COLON) {
-                eat_token(lexer);
-                statement = parse_var_decl(lexer, name);
-                next = *peek_next_token(lexer);
-                parser_expect(lexer, &next, TOKEN_SEMICOLON);
-            }
-        }
-        else if (next.kind == TOKEN_EQUAL) {
-            eat_token(lexer);
-            statement = parse_var_assign(lexer, name);
-        }
+        parser_expect(lexer, &next, TOKEN_COLON_COLON);
+        statement = parse_var_decl(lexer, name);
+        next = *peek_next_token(lexer);
+        parser_expect(lexer, &next, TOKEN_SEMICOLON);
     }
     if (next.kind == TOKEN_KEYWORD_RETURN) {
         statement = parse_return(lexer);
@@ -305,18 +295,30 @@ ASTNode *parse_statements(Lexer *lexer) {
         block_da_append(&lexer->parser->arena, statements, statement);
     }
 
-
     return statements;
 }
+ASTNode *parse_program(Lexer *lexer) {
+    ASTNode *program = {0};
+    while (peek_next_token(lexer)->kind != TOKEN_END) {
+        Token next = *peek_next_token(lexer);
+        parser_expect(lexer, &next, TOKEN_IDENT);
+        String8 identifier = next.text;
+        next = *peek_next_token(lexer);
+        parser_expect(lexer, &next, TOKEN_COLON_COLON);
+        
+        next = *peek_next_token(lexer);
+        if (next.kind == TOKEN_LEFT_PAREN) {
+            program = parse_function(lexer, identifier);
+        }
+        else if (false) {} // Parse Struct
+        else {} // Parse global declaration
+    }   
 
-ASTNode *parse_function(Lexer *lexer) {
+    return program;
+}
+
+ASTNode *parse_function(Lexer *lexer, String8 name) {
     Token next = *peek_next_token(lexer);
-    
-    parser_expect(lexer, &next, TOKEN_IDENT);
-    
-    String8 name = next.text;
-
-    next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
 
     next = *peek_next_token(lexer);

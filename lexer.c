@@ -12,6 +12,7 @@ TokenLiteral token_literals[] = {
     [TOKEN_LEFT_CURLY]  = {.symbol = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY,  .precedence = -1},
     [TOKEN_RIGHT_CURLY] = {.symbol = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY, .precedence = -1},
     [TOKEN_SEMICOLON]   = {.symbol = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON,   .precedence = -1},
+    [TOKEN_COLON_COLON] = {.symbol = str8_lit_comp("::"), .kind = TOKEN_COLON_COLON, .precedence = -1},
     [TOKEN_COLON]       = {.symbol = str8_lit_comp(":"),  .kind = TOKEN_COLON,       .precedence = -1},
     [TOKEN_EQUAL_EQUAL] = {.symbol = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL, .precedence = 90},
     [TOKEN_EQUAL]       = {.symbol = str8_lit_comp("="),  .kind = TOKEN_EQUAL,       .precedence = 10},
@@ -51,6 +52,8 @@ String8 token_kind_name(TokenKind kind) {
             return str8_lit("right curly bracket");
         case TOKEN_SEMICOLON:
             return str8_lit("semicolon");
+        case TOKEN_COLON_COLON:
+            return str8_lit("colon colon");
         case TOKEN_COLON:
             return str8_lit("colon");
         case TOKEN_EQUAL:

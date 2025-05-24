@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     //     eat_token(&lexer);
     // }
 
-    ASTNode *expr = parse_function(&lexer);
+    ASTNode *expr = parse_program(&lexer);
     print_ast(&global_arena, expr);
 
     return EXIT_SUCCESS;

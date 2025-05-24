@@ -67,6 +67,7 @@ ASTNode *make_variable(Arena *arena, Token *token);
 ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);
 ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
 
+ASTNode *parse_program(Lexer *lexer);
 // Expression parsing
 ASTNode *parse_leaf(Lexer *lexer);
 ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
@@ -76,7 +77,7 @@ ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_preced
 ASTNode *parse_statement(Lexer *lexer);
 ASTNode *parse_statements(Lexer *lexer);
 
-ASTNode* parse_function(Lexer *lexer);
+ASTNode* parse_function(Lexer *lexer, String8 name);
 
 ASTNode* parse_var_decl(Lexer *lexer, String8 name);
 ASTNode* parse_var_assign(Lexer *lexer, String8 name);
