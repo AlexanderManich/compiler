@@ -278,13 +278,17 @@ ASTNode *parse_statement(Lexer *lexer) {
     return statement;
 }
 
-void block_da_append(Arena *arena, ASTNode *da, ASTNode *statement) {
-    if (da->block.size >= da->block.capacity) {
-        da->block.capacity = da->block.capacity == 0 ? 256 : da->block.capacity*2;
-        da->block.statements = push_array(arena, ASTNode, da->block.capacity * sizeof(*da->block.statements))
-    }
-    da->block.statements[da->block.size++] = statement;
-}
+#define block_da_append(arena, da, statement) do { \
+    if ((da)->block.size >= (da)->block.capacity) { \
+        (da)->block.capacity = (da)->block.capacity == 0 ? 256 : (da)->block.capacity * 2; \
+        ASTNode **new_statements = push_array((arena), ASTNode*, (da)->block.capacity); \
+        if ((da)->block.statements) { \
+            memcpy(new_statements, (da)->block.statements, (da)->block.size * sizeof(ASTNode*)); \
+        } \
+        (da)->block.statements = new_statements; \
+    } \
+    (da)->block.statements[(da)->block.size++] = (statement); \
+} while (0)
 
 ASTNode *parse_statements(Lexer *lexer) {
     ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
@@ -297,6 +301,7 @@ ASTNode *parse_statements(Lexer *lexer) {
 
     return statements;
 }
+
 ASTNode *parse_program(Lexer *lexer) {
     ASTNode *program = {0};
     while (peek_next_token(lexer)->kind != TOKEN_END) {
