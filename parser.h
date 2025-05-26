@@ -32,7 +32,7 @@ struct ASTNode {
         struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
         struct { String8 name; ASTNode *body;} function;
-        struct { ASTNode **statements; u64 size; u64 capacity;} block;
+        struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
         struct { String8 name; ASTNode *expr;} var_decl;

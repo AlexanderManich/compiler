@@ -101,7 +101,7 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     if (node->kind == NODE_BLOCK) {
         u64 size = node->block.size;
         for (u64 i = 0; i < size; i++) {
-            _print_ast(arena, buffer, node->block.statements[i], x + i * 20, y);
+            _print_ast(arena, buffer, node->block.items[i], x + i * 20, y);
         }
     }
     if (node->kind == NODE_VAR_DECL) {
@@ -278,22 +278,28 @@ ASTNode *parse_statement(Lexer *lexer) {
     return statement;
 }
 
-#define block_da_append(arena, da, statement) do { \
+// TODO: Pass type explicitly instead of typeof()?
+#define block_da_append(arena, da, item) do { \
     if ((da).size >= (da).capacity) { \
+        struct { \
+            void *items; \
+            u64 size; \
+            u64 capacity; \
+        } da_temp; \
+        memcpy(&da_temp, &da, sizeof(da_temp)); \
         (da).capacity = (da).capacity == 0 ? 256 : (da).capacity * 2; \
-        ASTNode **new_statements = push_array((arena), ASTNode*, (da).capacity); \
-        if ((da).statements) { \
-            memcpy(new_statements, (da).statements, (da).size * sizeof(*(da).statements)); \
+        void *new_items = push_array(arena, typeof(*(da).items), (da).capacity); \
+        if ((da).items) { \
+            memcpy(new_items, (da).items, (da).size * sizeof(*(da).items)); \
         } \
-        (da).statements = new_statements; \
+        (da).items = new_items; \
     } \
-    (da).statements[(da).size++] = (statement); \
+    (da).items[(da).size++] = (item); \
 } while (0)
 
 ASTNode *parse_statements(Lexer *lexer) {
     ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
     statements->kind = NODE_BLOCK;
-    
     for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
         block_da_append(&lexer->parser->arena, statements->block, statement);
