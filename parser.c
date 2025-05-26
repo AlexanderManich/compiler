@@ -279,26 +279,26 @@ ASTNode *parse_statement(Lexer *lexer) {
 }
 
 #define block_da_append(arena, da, statement) do { \
-    if ((da)->block.size >= (da)->block.capacity) { \
-        (da)->block.capacity = (da)->block.capacity == 0 ? 256 : (da)->block.capacity * 2; \
-        ASTNode **new_statements = push_array((arena), ASTNode*, (da)->block.capacity); \
-        if ((da)->block.statements) { \
-            memcpy(new_statements, (da)->block.statements, (da)->block.size * sizeof(ASTNode*)); \
+    if ((da).size >= (da).capacity) { \
+        (da).capacity = (da).capacity == 0 ? 256 : (da).capacity * 2; \
+        ASTNode **new_statements = push_array((arena), ASTNode*, (da).capacity); \
+        if ((da).statements) { \
+            memcpy(new_statements, (da).statements, (da).size * sizeof(*(da).statements)); \
         } \
-        (da)->block.statements = new_statements; \
+        (da).statements = new_statements; \
     } \
-    (da)->block.statements[(da)->block.size++] = (statement); \
+    (da).statements[(da).size++] = (statement); \
 } while (0)
 
 ASTNode *parse_statements(Lexer *lexer) {
     ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
     statements->kind = NODE_BLOCK;
-
+    
     for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
-        block_da_append(&lexer->parser->arena, statements, statement);
+        block_da_append(&lexer->parser->arena, statements->block, statement);
     }
-
+    
     return statements;
 }
 
