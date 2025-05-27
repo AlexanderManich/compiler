@@ -278,7 +278,6 @@ ASTNode *parse_statement(Lexer *lexer) {
     return statement;
 }
 
-// TODO: Pass type explicitly instead of typeof()?
 #define block_da_append(arena, da, item) do { \
     if ((da).size >= (da).capacity) { \
         struct { \
@@ -287,8 +286,8 @@ ASTNode *parse_statement(Lexer *lexer) {
             u64 capacity; \
         } da_temp; \
         memcpy(&da_temp, &da, sizeof(da_temp)); \
-        (da).capacity = (da).capacity == 0 ? 256 : (da).capacity * 2; \
-        void *new_items = push_array(arena, typeof(*(da).items), (da).capacity); \
+        (da).capacity = (da).capacity == 0 ? 100 : (da).capacity * 2; \
+        void *new_items = arena_push(arena, sizeof((da).items) * (da).capacity, ARENA_DEFAULT_ALIGN);\
         if ((da).items) { \
             memcpy(new_items, (da).items, (da).size * sizeof(*(da).items)); \
         } \
@@ -304,7 +303,7 @@ ASTNode *parse_statements(Lexer *lexer) {
         ASTNode *statement = parse_statement(lexer);
         block_da_append(&lexer->parser->arena, statements->block, statement);
     }
-    
+
     return statements;
 }
 
