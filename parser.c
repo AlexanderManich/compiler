@@ -278,37 +278,49 @@ ASTNode *parse_statement(Lexer *lexer) {
     return statement;
 }
 
-#define block_da_append(arena, da, item) do { \
-    if ((da).size >= (da).capacity) { \
-        struct { \
-            void *items; \
-            u64 size; \
-            u64 capacity; \
-        } da_temp; \
-        memcpy(&da_temp, &da, sizeof(da_temp)); \
-        (da).capacity = (da).capacity == 0 ? 100 : (da).capacity * 2; \
-        void *new_items = arena_push(arena, sizeof((da).items) * (da).capacity, ARENA_DEFAULT_ALIGN);\
-        if ((da).items) { \
-            memcpy(new_items, (da).items, (da).size * sizeof(*(da).items)); \
-        } \
-        (da).items = new_items; \
-    } \
-    (da).items[(da).size++] = (item); \
-} while (0)
-
 ASTNode *parse_statements(Lexer *lexer) {
     ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
     statements->kind = NODE_BLOCK;
     for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
-        block_da_append(&lexer->parser->arena, statements->block, statement);
+        da_append(&lexer->parser->arena, statements->block, statement);
     }
 
     return statements;
 }
 
+bool try_parse_params(Lexer *lexer) {
+    if (peek_next_token(lexer)->kind != TOKEN_LEFT_PAREN) {
+        return false;
+    }
+    eat_token(lexer);
+
+    i32 depth = 1;
+
+    while (depth > 0) {
+        Token next = *peek_next_token(lexer);
+
+        if (next.kind == TOKEN_END) return false;
+        if (next.kind == TOKEN_LEFT_PAREN) {
+            eat_token(lexer);
+            depth += 1;
+        }
+        else if (next.kind == TOKEN_RIGHT_PAREN) {
+            eat_token(lexer);
+            depth -= 1;
+        }
+        else {
+            eat_token(lexer);
+        }
+    }
+
+    return true;
+}
+
 ASTNode *parse_program(Lexer *lexer) {
-    ASTNode *program = {0};
+    ASTNode *program = push_array(&lexer->parser->arena, ASTNode, 1);
+    program->kind = NODE_BLOCK;
+
     while (peek_next_token(lexer)->kind != TOKEN_END) {
         Token next = *peek_next_token(lexer);
         parser_expect(lexer, &next, TOKEN_IDENT);
@@ -316,12 +328,28 @@ ASTNode *parse_program(Lexer *lexer) {
         next = *peek_next_token(lexer);
         parser_expect(lexer, &next, TOKEN_COLON_COLON);
         
-        next = *peek_next_token(lexer);
-        if (next.kind == TOKEN_LEFT_PAREN) {
-            program = parse_function(lexer, identifier);
+        if (peek_next_token(lexer)->kind == TOKEN_LEFT_PAREN) {
+            // Save lexer so we can restore state, if we are not in a param list
+            Lexer lexer_save = *lexer;
+
+            if(try_parse_params(lexer)) {
+                if (peek_next_token(lexer)->kind == TOKEN_LEFT_CURLY) {
+                    *lexer = lexer_save;
+                    ASTNode *func = parse_function(lexer, identifier);                    
+                    da_append(&lexer->parser->arena, program->block, func);
+                    continue;
+                }
+            }
+
+            *lexer = lexer_save;
         }
         else if (false) {} // Parse Struct
-        else {} // Parse global declaration
+        else { // Parse global declaration
+            ASTNode *global_decl = parse_var_decl(lexer, identifier);
+            da_append(&lexer->parser->arena, program->block, global_decl);
+            next = *peek_next_token(lexer);
+            parser_expect(lexer, &next, TOKEN_SEMICOLON);
+        } 
     }   
 
     return program;

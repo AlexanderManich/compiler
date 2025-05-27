@@ -59,4 +59,21 @@ String8 str8(u8 *str, u64 size);
 
 bool str8_compare(const String8 str1, const String8 str2);
 
+#define da_append(arena, da, item) do { \
+    if ((da).size >= (da).capacity) { \
+        struct { \
+            void *items; \
+            u64 size; \
+            u64 capacity; \
+        } da_temp; \
+        memcpy(&da_temp, &da, sizeof(da_temp)); \
+        (da).capacity = (da).capacity == 0 ? 256 : (da).capacity * 2; \
+        void *new_items = arena_push(arena, sizeof((da).items) * (da).capacity, ARENA_DEFAULT_ALIGN);\
+        if ((da).items) { \
+            memcpy(new_items, (da).items, (da).size * sizeof(*(da).items)); \
+        } \
+        (da).items = new_items; \
+    } \
+    (da).items[(da).size++] = (item); \
+} while (0)
 #endif // COMPILER_H
