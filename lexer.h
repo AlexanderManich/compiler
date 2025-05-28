@@ -4,7 +4,7 @@
 #pragma once
 
 #include <stdlib.h>
-#include "compiler.h"
+#include "base/base_include.h"
 
 typedef enum TokenKind {
     // Literals. These need to ALWAYS be defined the start of the enum, because we have table of token literals,
@@ -66,6 +66,7 @@ extern TokenLiteral token_literals[];
 // into the array, so it acts like a ring buffer.
 #define MAX_CONCURRENT_TOKENS 8
 
+// Forward declare because we cant include parser.h (circular include)
 struct Parser;
 
 typedef struct Lexer Lexer;
@@ -77,7 +78,7 @@ struct Lexer {
 
     Token tokens[MAX_CONCURRENT_TOKENS];
     u64 token_array_cursor; 
-    u64 incoming_tokens_count;
+    i64 incoming_tokens_count;
 
     struct Parser *parser;
 };

@@ -15,7 +15,7 @@ void codegen_ast(ASTNode *root) {
     
     fclose(asm_output_handle);
     char *asm_command = "as build/asm.s -o build/asm.o";
-    char *link_command = "ld build/asm.o -o build/compiler";
+    char *link_command = "ld build/asm.o -o build/main";
 
     system(asm_command);
     system(link_command);

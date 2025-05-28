@@ -123,7 +123,7 @@ bool lexer_starts_with(Lexer *lexer, const String8 prefix) {
 }
 
 inline void eat_char(Lexer *lexer) {
-    assert(lexer->input_cursor < lexer->input.size);
+    debug_assert(lexer->input_cursor < lexer->input.size);
     char c = lexer->input.str[lexer->input_cursor];
     lexer->input_cursor += 1;
     if (c == '\n') {
@@ -137,7 +137,7 @@ inline char peek_next_char(Lexer *lexer) {
 }
 
 inline Token *get_unused_token(Lexer *lexer) {
-    assert(lexer->incoming_tokens_count < MAX_CONCURRENT_TOKENS);
+    debug_assert(lexer->incoming_tokens_count < MAX_CONCURRENT_TOKENS);
 
     // Mask off bits so we wrap around if cursor + incoming is bigger than size of array
     u64 index = (lexer->token_array_cursor + lexer->incoming_tokens_count) & (MAX_CONCURRENT_TOKENS - 1);
@@ -234,13 +234,13 @@ Token *lexer_make_invalid(Lexer *lexer) {
 }
 
 Token *peek_token(Lexer *lexer, i64 lookahead_index) {
-    assert(lookahead_index < MAX_CONCURRENT_TOKENS);
-    assert(lookahead_index >= 0);
+    debug_assert(lookahead_index < MAX_CONCURRENT_TOKENS);
+    debug_assert(lookahead_index >= 0);
 
     if (lookahead_index == 0) return peek_next_token(lexer);
 
     // Figure this comparison out so we dont cast lookahead_index
-    while (lexer->incoming_tokens_count <= (u64)lookahead_index) {
+    while (lexer->incoming_tokens_count <= lookahead_index) {
         make_new_token(lexer);
         lexer->incoming_tokens_count++;
     }
@@ -251,21 +251,21 @@ Token *peek_token(Lexer *lexer, i64 lookahead_index) {
 
 Token *peek_next_token(Lexer *lexer) {
     if (lexer->incoming_tokens_count) {
-        assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
+        debug_assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
         return &lexer->tokens[lexer->token_array_cursor];
     }
 
     make_new_token(lexer);
     lexer->incoming_tokens_count++;
 
-    assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
+    debug_assert(lexer->tokens[lexer->token_array_cursor].end_line != -1);
     return &lexer->tokens[lexer->token_array_cursor];
 }
 
 void eat_token(Lexer *lexer) {
-    assert(lexer->incoming_tokens_count > 0);
-    // Assert max tokens is a power of 2
-    assert((MAX_CONCURRENT_TOKENS & (MAX_CONCURRENT_TOKENS - 1)) == 0);
+    debug_assert(lexer->incoming_tokens_count > 0);
+    // debug_assert max tokens is a power of 2
+    debug_assert((MAX_CONCURRENT_TOKENS & (MAX_CONCURRENT_TOKENS - 1)) == 0);
 
     lexer->incoming_tokens_count--;
     // Increment cursor and wrap around if it exceeds last index in token array;

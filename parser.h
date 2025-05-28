@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include "arena.h"
 #include "lexer.h"
+#include "base/base_arena.h"
 
 typedef struct Parser Parser;
 struct Parser {
@@ -44,7 +44,7 @@ String8 node_kind_name(ASTNode* node);
 
 // Operator parsing helpers
 String8 to_operator(Token *token);
-bool is_binary_operator(Token *token);
+b32 is_binary_operator(Token *token);
 i32 get_precedence_from_kind(TokenKind kind);
 
 // Make ASTNodes
@@ -79,11 +79,19 @@ ASTNode *parse_return(Lexer *lexer);
 void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
+// Parse tree printing...
+typedef struct CharGrid CharGrid;
+struct CharGrid {
+    u8 *grid;
+    u32 height;
+    u32 width;
+};
 
 u64 calc_ast_tree_depth(ASTNode *tree);
 void print_ast(Arena *arena, ASTNode *tree);
 CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *tree, u32 x, u32 y);
 
+// String/Number conversions
 i32 i32_from_str8(String8 str);
 String8 str8_from_i32(Arena *arena, i32 num);
 

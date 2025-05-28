@@ -1,13 +1,13 @@
 #include "lexer.h"
 #include "parser.h"
 #include "string.h"
-#include "compiler.h"
+#include "base/base_include.h"
 
 String8 to_operator(Token *token) {
     return token->text;
 }
 
-bool is_binary_operator(Token *token) {
+b32 is_binary_operator(Token *token) {
     switch (token->kind) {
         case TOKEN_EQUAL_EQUAL:
         case TOKEN_PLUS:

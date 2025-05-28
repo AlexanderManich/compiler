@@ -1,44 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "compiler.h"
 #include "lexer.h"
 #include "parser.h"
-#include "arena.h"
 #include "code_gen.h"
-
-u64 calc_cstring_length(char *cstr) {
-    u64 i = 0;
-    for(; cstr[i]; i += 1);
-    return i;
-}
-
-String8 str8(u8 *str, u64 size) {
-    String8 string = {0};
-    string.str  = str;
-    string.size = size;
-    return string;
-}
-
-inline
-bool str8_compare(String8 str1, String8 str2) {
-    i32 result = 0;
-
-    if (str1.size == str2.size) {
-        result = 1;
-
-        for (u64 i = 0; i < str1.size && i < str2.size; i++) {
-            bool match = (str1.str[i] == str2.str[i]);
-
-            if (!match) {
-                result = 0;
-                break;
-            }
-        }
-    }
-
-    return result;
-}
+#include "base/base_include.h"
+// #include "base/base_include.c"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
     String8 result = {0};
@@ -47,6 +14,7 @@ String8 read_entire_file(Arena *arena, String8 file_path) {
 
     if (!file) {
         fprintf(stderr, "File doesn't exist %s\n", file_path_cstr);
+        exit(EXIT_FAILURE);
     } 
 
     fseek(file, 0, SEEK_END);
@@ -65,24 +33,24 @@ int main(int argc, char **argv) {
     u8 global_arena_buffer[global_arena_size];
     Arena global_arena = {0};
     arena_init(&global_arena, global_arena_buffer, global_arena_size);
-
-    char *program_cstr = shift(argv, argc);
-    printf("Program: %s\n", program_cstr);
+    
+    String8 program = str8_lit(shift(argv, argc));
+    printf("Program: %s\n", program.str);
 
     String8 input_file_path = {0};
     while (argc > 0) {
-        char *flag_cstr = shift(argv, argc);
-        if (str8_compare(str8_cstring(flag_cstr), str8_lit("-o"))) {
+        String8 flag = str8_lit(shift(argv, argc));
+        if (str8_compare(flag, str8_lit("-o"))) {
 
             if (argc <= 0) {
-                fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag_cstr);
-                exit(EXIT_FAILURE);
+                fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);
+                return EXIT_FAILURE;
             }
-            char *output_file_path_cstr = shift(argv, argc);
-            printf("Output filepath: %s\n", output_file_path_cstr);
+            String8 output_file_path = str8_lit(shift(argv, argc));
+            printf("Output filepath: %s\n", output_file_path.str);
         }
         else {
-            input_file_path = str8_cstring(flag_cstr);
+            input_file_path = flag;
         }
     }
 
@@ -106,8 +74,13 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *expr = parse_statement(&lexer);
-    // print_ast(&global_arena, expr);
+    print_ast(&global_arena, expr);
     codegen_ast(expr);
 
     return EXIT_SUCCESS;
 }
+
+#include "base/base_include.c"
+#include "lexer.c"
+#include "parser.c"
+#include "code_gen.c"

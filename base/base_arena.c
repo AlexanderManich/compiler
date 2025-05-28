@@ -1,4 +1,5 @@
-#include "arena.h"
+#include "base_arena.h"
+#include "base_core.h"
 
 Arena *arena_init(Arena *arena, u8 *base, u64 size) {
     arena->base = base;
@@ -11,7 +12,7 @@ void *arena_push(Arena *arena, u64 size, u64 align) {
     u64 pos_pre  = align_pow2(arena->pos, align);
     u64 pos_post = pos_pre + size;
     
-    assert(pos_post <= arena->size && "Arena ran out of space");
+    debug_assert(pos_post <= arena->size);
 
     void *result = arena->base + pos_pre;
     arena->pos = pos_post;
@@ -20,7 +21,7 @@ void *arena_push(Arena *arena, u64 size, u64 align) {
 }
 
 void arena_pop_to(Arena* arena, u64 pos) {
-    assert(pos <= arena->size);
+    debug_assert(pos <= arena->size);
     arena->pos = pos;
 }
 

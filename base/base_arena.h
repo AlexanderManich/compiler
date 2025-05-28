@@ -1,8 +1,7 @@
-#ifndef ARENA_H
-#define ARENA_H
+#ifndef BASE_ARENA_H
+#define BASE_ARENA_H
 
-#include "compiler.h"
-#include "string.h"
+#include "base_include.h"
 
 typedef struct Arena Arena;
 struct Arena {
@@ -24,10 +23,10 @@ void *arena_push(Arena *arena, u64 size, u64 align);
 void *arena_push_zero(Arena *arena, u64 size);
 
 #define ARENA_DEFAULT_ALIGN 16
-#define push_array(arena, type, count) memory_zero((type *)push_array_no_zero(arena, type, count), sizeof(type) * (count))
+#define push_array(arena, type, count) (type *)memory_zero(push_array_no_zero(arena, type, count), sizeof(type) * (count))
 #define push_array_no_zero(arena, type, count) (type *)arena_push((arena), sizeof(type)*(count), (ARENA_DEFAULT_ALIGN))
 
-void arena_pop(Arena *arena, u64 size);
+void ArenaPop(Arena *arena, u64 size);
 void arena_pop_to(Arena *arena, u64 pos);
 void arena_clear(Arena *arena);
 
@@ -36,4 +35,4 @@ u64 arena_pos(Arena *arena);
 TempArena temp_begin(Arena *arena);
 void temp_end(TempArena temp);
 
-#endif //ARENA_H
+#endif //BASE_ARENA_H
