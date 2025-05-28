@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "arena.h"
+#include "lexer.h"
 
 typedef struct Parser Parser;
 struct Parser {
@@ -12,7 +13,7 @@ struct Parser {
 };
 
 typedef enum NodeKind {
-    NODE_VAR,
+    NODE_IDENT,
     NODE_VAR_DECL,
     NODE_VAR_ASSIGN,
     NODE_INT,
@@ -27,8 +28,8 @@ typedef struct ASTNode ASTNode;
 struct ASTNode {
     ASTNodeKind kind;
     union {
-        struct { i32 value;} integer;
-        struct { String8 name;} variable;
+        struct { i64 value;} integer;
+        struct { String8 name;} indentifier;
         struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
         struct { String8 name; ASTNode *body;} function;
@@ -38,17 +39,6 @@ struct ASTNode {
         struct { String8 name; ASTNode *expr;} var_decl;
     };
 };
-
-// #define BLOCK_DA_INIT_CAP 256
-// #define block_da_append(arena, da, statement)                                                          \
-//     do {                                                                                 \
-//         if ((da)->block.size >= (da)->block.capacity) {                                             \
-//             (da)->block.capacity = (da)->block.capacity == 0 ? BLOCK_DA_INIT_CAP : (da)->block.capacity*2;   \
-//             (da)->block.statements = push_array((arena), ASTNode, (da)->block.capacity*sizeof(*(da)->block.statements)); \
-//         }                                                                                \
-//                                                                                          \
-//         (da)->block.statements[(da)->block.size++] = (statement);                                             \
-//     } while (0)
 
 String8 node_kind_name(ASTNode* node);
 
@@ -63,7 +53,7 @@ ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *rig
 ASTNode *make_return(Arena *arena, ASTNode *expr);
 ASTNode *make_function(Arena *arena, String8 name, ASTNode *body);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
-ASTNode *make_variable(Arena *arena, Token *token);
+ASTNode *make_indentifier(Arena *arena, Token *token);
 ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);
 ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
 

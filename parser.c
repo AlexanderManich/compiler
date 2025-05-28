@@ -75,8 +75,8 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
         _print_ast(arena, buffer, node->binary_op.left, x - offset, y + 2);
         _print_ast(arena, buffer, node->binary_op.right, x + offset, y + 2);
     }
-    if (node->kind == NODE_VAR) {
-       memcpy(&buffer.grid[y * buffer.width + x], node->variable.name.str, node->variable.name.size); 
+    if (node->kind == NODE_IDENT) {
+       memcpy(&buffer.grid[y * buffer.width + x], node->indentifier.name.str, node->indentifier.name.size); 
     }
     if (node->kind == NODE_INT) {
         String8 i32_as_s8 = str8_from_i32(arena ,node->integer.value);
@@ -117,12 +117,12 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
 
 String8 node_kind_name(ASTNode *node) {
     switch (node->kind) {
-        case NODE_VAR:
-            return str8_lit("var");
+        case NODE_IDENT:
+            return str8_lit("identifier");
         case NODE_VAR_DECL:
-            return str8_lit("var decl");
+            return str8_lit("variable declaration");
         case NODE_VAR_ASSIGN:
-            return str8_lit("var assign");
+            return str8_lit("variable assign");
         case NODE_INT:
             return str8_lit("integer");
         case NODE_BINARY_OP:
@@ -179,10 +179,10 @@ ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_bo
     return node;
 }
 
-ASTNode *make_variable(Arena *arena, Token *token) {
+ASTNode *make_indentifier(Arena *arena, Token *token) {
     ASTNode *node = push_array(arena, ASTNode, 1);
-    node->kind = NODE_VAR;
-    node->variable.name = token->text;
+    node->kind = NODE_IDENT;
+    node->indentifier.name = token->text;
     return node;
 }
 
@@ -210,7 +210,7 @@ ASTNode *parse_leaf(Lexer *lexer) {
     ASTNode* result = {0};
     switch (next.kind) {
         case TOKEN_IDENT: {
-            result = make_variable(&lexer->parser->arena, &next);
+            result = make_indentifier(&lexer->parser->arena, &next);
             return result;
         }
         case TOKEN_NUMBER: {

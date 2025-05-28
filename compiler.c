@@ -5,6 +5,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "arena.h"
+#include "code_gen.h"
 
 u64 calc_cstring_length(char *cstr) {
     u64 i = 0;
@@ -104,8 +105,9 @@ int main(int argc, char **argv) {
     //     eat_token(&lexer);
     // }
 
-    ASTNode *expr = parse_program(&lexer);
-    print_ast(&global_arena, expr);
+    ASTNode *expr = parse_statement(&lexer);
+    // print_ast(&global_arena, expr);
+    codegen_ast(expr);
 
     return EXIT_SUCCESS;
 }
