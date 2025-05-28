@@ -38,7 +38,8 @@ typedef int32_t b32;
 
 #define align_pow2(x,b) (((x) + (b) - 1) & (~((b) - 1)))
 
-#define shift(xs, xs_size) (debug_assert((xs_size) > 0), (xs_size)--, *(xs)++)
+// #define shift(xs, xs_size) (debug_assert((xs_size) > 0), (xs_size)--, *(xs)++)
+char *shift_args(char ***argv, int *argc);
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))

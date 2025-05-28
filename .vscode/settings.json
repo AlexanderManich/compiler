@@ -9,6 +9,7 @@
         "*.cpp": "cpp",
         "*.h": "cpp",
         "cstdio": "c",
-        "vector": "c"
+        "vector": "c",
+        "random": "c"
     }
 }

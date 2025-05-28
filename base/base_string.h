@@ -22,6 +22,13 @@ b32 str8_compare(const String8 str1, const String8 str2);
 
 String8 str8_last_slash_prefix(String8 string);
 String8 str8_last_slash_suffix(String8 string);
+String8 str8_strip_ext(String8 string);
 
 String8 str8_concat(Arena *arena, String8 str1, String8 str2);
+
+static inline String8 str8_shift_args(char ***argv, int *argc) {
+    char *arg_cstr = shift_args(argv, argc);
+    return str8_cstring(arg_cstr);
+}
+
 #endif // BASE_STRING_H

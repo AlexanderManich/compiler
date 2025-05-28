@@ -210,11 +210,11 @@ ASTNode *parse_leaf(Lexer *lexer) {
     ASTNode* result = {0};
     switch (next.kind) {
         case TOKEN_IDENT: {
-            result = make_indentifier(&lexer->parser->arena, &next);
+            result = make_indentifier(lexer->parser->arena, &next);
             return result;
         }
         case TOKEN_NUMBER: {
-            result = make_number(&lexer->parser->arena, &next);
+            result = make_number(lexer->parser->arena, &next);
             return result;
         }
         default:
@@ -233,7 +233,7 @@ ASTNode* parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_preced
     if (min_precedence <= next_prec) {
         eat_token(lexer);
         ASTNode *right = parse_expression(lexer, next_prec);
-        return make_binary(&lexer->parser->arena, left, to_operator(&next), right);
+        return make_binary(lexer->parser->arena, left, to_operator(&next), right);
     }
     else {
         return left;
@@ -279,17 +279,17 @@ ASTNode *parse_statement(Lexer *lexer) {
 }
 
 ASTNode *parse_statements(Lexer *lexer) {
-    ASTNode *statements = push_array(&lexer->parser->arena, ASTNode, 1);
+    ASTNode *statements = push_array(lexer->parser->arena, ASTNode, 1);
     statements->kind = NODE_BLOCK;
     for (Token next = *peek_next_token(lexer); next.kind != TOKEN_RIGHT_CURLY && next.kind != TOKEN_END; next = *peek_next_token(lexer)) {       
         ASTNode *statement = parse_statement(lexer);
-        da_append(&lexer->parser->arena, statements->block, statement);
+        da_append(lexer->parser->arena, statements->block, statement);
     }
 
     return statements;
 }
 
-bool try_parse_params(Lexer *lexer) {
+b32 try_parse_params(Lexer *lexer) {
     if (peek_next_token(lexer)->kind != TOKEN_LEFT_PAREN) {
         return false;
     }
@@ -318,7 +318,7 @@ bool try_parse_params(Lexer *lexer) {
 }
 
 ASTNode *parse_program(Lexer *lexer) {
-    ASTNode *program = push_array(&lexer->parser->arena, ASTNode, 1);
+    ASTNode *program = push_array(lexer->parser->arena, ASTNode, 1);
     program->kind = NODE_BLOCK;
 
     while (peek_next_token(lexer)->kind != TOKEN_END) {
@@ -336,7 +336,7 @@ ASTNode *parse_program(Lexer *lexer) {
                 if (peek_next_token(lexer)->kind == TOKEN_LEFT_CURLY) {
                     *lexer = lexer_save;
                     ASTNode *func = parse_function(lexer, identifier);                    
-                    da_append(&lexer->parser->arena, program->block, func);
+                    da_append(lexer->parser->arena, program->block, func);
                     continue;
                 }
             }
@@ -346,7 +346,7 @@ ASTNode *parse_program(Lexer *lexer) {
         else if (false) {} // Parse Struct
         else { // Parse global declaration
             ASTNode *global_decl = parse_var_decl(lexer, identifier);
-            da_append(&lexer->parser->arena, program->block, global_decl);
+            da_append(lexer->parser->arena, program->block, global_decl);
             next = *peek_next_token(lexer);
             parser_expect(lexer, &next, TOKEN_SEMICOLON);
         } 
@@ -370,20 +370,20 @@ ASTNode *parse_function(Lexer *lexer, String8 name) {
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
  
-    ASTNode *function = make_function(&lexer->parser->arena, name, body);
+    ASTNode *function = make_function(lexer->parser->arena, name, body);
 
     return function;
 }
 
 ASTNode *parse_var_decl(Lexer *lexer, String8 name) {
     ASTNode *expr = parse_expression(lexer, -1);
-    ASTNode *var_decl = make_var_decl(&lexer->parser->arena, name, expr);
+    ASTNode *var_decl = make_var_decl(lexer->parser->arena, name, expr);
     return var_decl;
 }
 
 ASTNode *parse_var_assign(Lexer *lexer, String8 name) {
     ASTNode *expr = parse_expression(lexer, -1);
-    ASTNode *var_assign = make_var_assign(&lexer->parser->arena, name, expr);
+    ASTNode *var_assign = make_var_assign(lexer->parser->arena, name, expr);
     return var_assign;
 }
 
@@ -404,14 +404,14 @@ ASTNode *parse_if(Lexer *lexer) {
         else_body = parse_statement(lexer);
     }
 
-    ASTNode *if_statement = make_if(&lexer->parser->arena, cond, if_body, else_body);
+    ASTNode *if_statement = make_if(lexer->parser->arena, cond, if_body, else_body);
 
     return if_statement;
 }
 
 ASTNode *parse_return(Lexer *lexer) {
     ASTNode *expr = parse_expression(lexer, -1);
-    ASTNode *return_statement = make_return(&lexer->parser->arena, expr);
+    ASTNode *return_statement = make_return(lexer->parser->arena, expr);
 
     return return_statement;
 }

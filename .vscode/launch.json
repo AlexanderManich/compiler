@@ -8,11 +8,13 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/compiler",
+            "program": "${workspaceRoot}/build/main",
             "args": [
-                "${workspaceFolder}/input.test"
+                "input.test",
+                "-o",
+                "build/test.out"
             ],
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",
         }
     ]

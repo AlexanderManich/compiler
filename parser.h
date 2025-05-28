@@ -9,7 +9,7 @@
 
 typedef struct Parser Parser;
 struct Parser {
-    Arena arena;
+    Arena *arena;
 };
 
 typedef enum NodeKind {

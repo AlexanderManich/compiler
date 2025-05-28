@@ -28,25 +28,25 @@ String8 read_entire_file(Arena *arena, String8 file_path) {
 }
 
 int main(int argc, char **argv) {
-
     u64 global_arena_size = MB(1);
     u8 global_arena_buffer[global_arena_size];
     Arena global_arena = {0};
     arena_init(&global_arena, global_arena_buffer, global_arena_size);
     
-    String8 program = str8_lit(shift(argv, argc));
+    String8 program = str8_shift_args(&argv, &argc);
     printf("Program: %s\n", program.str);
 
     String8 input_file_path = {0};
+    String8 output_file_path = {0};
     while (argc > 0) {
-        String8 flag = str8_lit(shift(argv, argc));
+        String8 flag = str8_shift_args(&argv, &argc);
         if (str8_compare(flag, str8_lit("-o"))) {
 
             if (argc <= 0) {
                 fprintf(stderr, "ERROR: no value provided for flag '%s'\n", flag.str);
                 return EXIT_FAILURE;
             }
-            String8 output_file_path = str8_lit(shift(argv, argc));
+            output_file_path = str8_shift_args(&argv, &argc),
             printf("Output filepath: %s\n", output_file_path.str);
         }
         else {
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     String8 input = read_entire_file(&global_arena, input_file_path);
 
     Parser parser = {0};
-    parser.arena = global_arena;
+    parser.arena = &global_arena;
 
     Lexer lexer = {0};
     lexer.input = input;
@@ -74,8 +74,9 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *expr = parse_statement(&lexer);
-    print_ast(&global_arena, expr);
-    codegen_ast(expr);
+    // print_ast(&global_arena, expr);
+    codegen_ast(&global_arena, expr, output_file_path);
+    asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }

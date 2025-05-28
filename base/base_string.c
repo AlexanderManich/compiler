@@ -64,6 +64,19 @@ String8 str8_last_slash_suffix(String8 string) {
     return string;
 }
 
+String8 str8_strip_ext(String8 string) {
+    if (string.size > 0) {
+        u8 *ptr = string.str + string.size - 1;
+        for (; ptr >= string.str; ptr--) {
+            if (*ptr == '.') break;
+        }
+        if (ptr >= string.str) {
+            string.size = (u64)(ptr - string.str);
+        }
+    }
+    return string;
+}
+
 String8 str8_concat(Arena *arena, String8 str1, String8 str2) {
     String8 result;
     result.size = str1.size + str2.size;
