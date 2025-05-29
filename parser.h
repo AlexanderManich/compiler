@@ -14,6 +14,8 @@ struct Parser {
 
 typedef enum NodeKind {
     NODE_IDENT,
+    NODE_PARAMETER,
+    NODE_PARAMETER_LIST,
     NODE_VAR_DECL,
     NODE_VAR_ASSIGN,
     NODE_INT,
@@ -32,7 +34,9 @@ struct ASTNode {
         struct { String8 name;} indentifier;
         struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
-        struct { String8 name; ASTNode *body;} function;
+        struct { String8 name; String8 type;} parameter;
+        struct { ASTNode **items; u64 size; u64 capacity;} parameter_list;
+        struct { String8 name; ASTNode* parameters; ASTNode *body;} function;
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
@@ -51,7 +55,8 @@ i32 get_precedence_from_kind(TokenKind kind);
 ASTNode *make_number(Arena *arena, Token *token); 
 ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
 ASTNode *make_return(Arena *arena, ASTNode *expr);
-ASTNode *make_function(Arena *arena, String8 name, ASTNode *body);
+ASTNode *make_parameter(Arena* arena, String8 name, String8 type);
+ASTNode *make_function(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
 ASTNode *make_indentifier(Arena *arena, Token *token);
 ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);

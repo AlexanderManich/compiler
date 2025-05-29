@@ -73,10 +73,10 @@ int main(int argc, char **argv) {
     //     eat_token(&lexer);
     // }
 
-    ASTNode *expr = parse_statement(&lexer);
+    ASTNode *program_ast = parse_program(&lexer);
     // print_ast(&global_arena, expr);
-    codegen_ast(&global_arena, expr, output_file_path);
-    asm_compile_and_link(&global_arena, output_file_path);
+    // codegen_ast(&global_arena, expr, output_file_path);
+    // asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }

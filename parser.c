@@ -162,10 +162,19 @@ ASTNode *make_return(Arena *arena, ASTNode *expr) {
     return node;
 }
 
-ASTNode *make_function(Arena *arena, String8 name, ASTNode *body) {
+ASTNode *make_parameter(Arena *arena, String8 name, String8 type) {
+    ASTNode *node = push_array(arena, ASTNode, 1);
+    node->kind = NODE_PARAMETER;
+    node->parameter.name = name;
+    node->parameter.type = type;
+    return node;
+}
+
+ASTNode *make_function(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body) {
     ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_FUNCTION;
     node->function.name = name;
+    node->function.parameters = parameters;
     node->function.body = body;
     return node;
 }
@@ -355,12 +364,53 @@ ASTNode *parse_program(Lexer *lexer) {
     return program;
 }
 
+ASTNode *parse_parameter(Lexer *lexer) {
+    Token next = *peek_next_token(lexer);
+    String8 param_ident = next.text;
+    eat_token(lexer);
+
+    next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_COLON);
+
+    next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_IDENT);
+    String8 param_type = next.text;
+
+    return make_parameter(lexer->parser->arena, param_ident, param_type);
+}
+
+ASTNode *parse_parameters(Lexer *lexer) {
+    ASTNode *node = push_array(lexer->parser->arena, ASTNode, 1);
+    node->kind = NODE_PARAMETER_LIST;
+
+    Token next = *peek_next_token(lexer);
+    while (next.kind != TOKEN_RIGHT_PAREN) {
+        ASTNode *parameter = parse_parameter(lexer);
+        da_append(lexer->parser->arena, node->parameter_list, parameter);
+        next = *peek_next_token(lexer);
+        if (next.kind != TOKEN_RIGHT_PAREN) {
+            parser_expect(lexer, &next, TOKEN_COMMA);
+        }
+    }
+    
+    return node;
+}
+
 ASTNode *parse_function(Lexer *lexer, String8 name) {
     Token next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
 
+    ASTNode *parameter_list = {0};
+
     next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
+    if (next.kind == TOKEN_IDENT) {
+        parameter_list = parse_parameters(lexer);
+        next = *peek_next_token(lexer);
+        parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
+    }
+    else {
+        parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
+    }
 
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
@@ -370,7 +420,7 @@ ASTNode *parse_function(Lexer *lexer, String8 name) {
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
  
-    ASTNode *function = make_function(lexer->parser->arena, name, body);
+    ASTNode *function = make_function(lexer->parser->arena, name, parameter_list, body);
 
     return function;
 }
