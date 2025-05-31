@@ -61,8 +61,13 @@ int main(int argc, char **argv) {
 
     String8 input = read_entire_file(&global_arena, input_file_path);
 
+    u64 parser_arena_size = MB(1);
+    u8 parser_arena_buffer[parser_arena_size];
+    Arena parser_arena = {0};
+    arena_init(&parser_arena, parser_arena_buffer, parser_arena_size);
+
     Parser parser = {0};
-    parser.arena = &global_arena;
+    parser.arena = &parser_arena;
 
     Lexer lexer = {0};
     lexer.input = input;
@@ -74,7 +79,7 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *program_ast = parse_program(&lexer);
-    // print_ast(&global_arena, expr);
+    print_ast(&global_arena, program_ast);
     // codegen_ast(&global_arena, expr, output_file_path);
     // asm_compile_and_link(&global_arena, output_file_path);
 

@@ -443,7 +443,7 @@ ASTNode *parse_if(Lexer *lexer) {
     Token next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
 
-    ASTNode *if_body = parse_statement(lexer);
+    ASTNode *if_body = parse_statements(lexer);
 
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
@@ -451,7 +451,7 @@ ASTNode *parse_if(Lexer *lexer) {
     ASTNode *else_body = {0};
     if (peek_token(lexer, 1)->kind == TOKEN_KEYWORD_ELSE)  {
         eat_token(lexer);
-        else_body = parse_statement(lexer);
+        else_body = parse_statements(lexer);
     }
 
     ASTNode *if_statement = make_if(lexer->parser->arena, cond, if_body, else_body);
