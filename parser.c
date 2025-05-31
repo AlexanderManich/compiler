@@ -36,7 +36,7 @@ u64 calc_ast_tree_depth(ASTNode *tree) {
         return 1 + calc_ast_tree_depth(tree->return_val.expr);
     }
     if (tree->kind == NODE_FUNCTION) {
-        return 1 + calc_ast_tree_depth(tree->function.body);
+        return 1 + calc_ast_tree_depth(tree->function_decl.body);
     }
 
     return 1;
@@ -91,12 +91,12 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     if (node->kind == NODE_FUNCTION) {
         // TODO: Change from sprintf, when i have str8 format string
         String8 node_name = node_kind_name(node);
-        sprintf((char *)(buffer.grid + y * buffer.width + (x - (node_name.size + node->function.name.size) / 2)),
-        "%s (%.*s)", node_name.str, str8_varg(node->function.name));
+        sprintf((char *)(buffer.grid + y * buffer.width + (x - (node_name.size + node->function_decl.name.size) / 2)),
+        "%s (%.*s)", node_name.str, str8_varg(node->function_decl.name));
 
         buffer.grid[(y + 1) * buffer.width + x] = '|';
 
-        _print_ast(arena, buffer, node->function.body, x, y + 2);
+        _print_ast(arena, buffer, node->function_decl.body, x, y + 2);
     }
     if (node->kind == NODE_BLOCK) {
         u64 size = node->block.size;
@@ -170,12 +170,12 @@ ASTNode *make_parameter(Arena *arena, String8 name, String8 type) {
     return node;
 }
 
-ASTNode *make_function(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body) {
+ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body) {
     ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_FUNCTION;
-    node->function.name = name;
-    node->function.parameters = parameters;
-    node->function.body = body;
+    node->function_decl.name = name;
+    node->function_decl.parameters = parameters;
+    node->function_decl.body = body;
     return node;
 }
 
@@ -283,7 +283,6 @@ ASTNode *parse_statement(Lexer *lexer) {
         parser_expect(lexer, &next, TOKEN_SEMICOLON);
     }
 
-    next = *peek_next_token(lexer);
     return statement;
 }
 
@@ -344,8 +343,8 @@ ASTNode *parse_program(Lexer *lexer) {
             if(try_parse_params(lexer)) {
                 if (peek_next_token(lexer)->kind == TOKEN_LEFT_CURLY) {
                     *lexer = lexer_save;
-                    ASTNode *func = parse_function(lexer, identifier);                    
-                    da_append(lexer->parser->arena, program->block, func);
+                    ASTNode *func_decl = parse_function_decl(lexer, identifier);                    
+                    da_append(lexer->parser->arena, program->block, func_decl);
                     continue;
                 }
             }
@@ -396,12 +395,13 @@ ASTNode *parse_parameters(Lexer *lexer) {
     return node;
 }
 
-ASTNode *parse_function(Lexer *lexer, String8 name) {
+ASTNode *parse_function_decl(Lexer *lexer, String8 name) {
     Token next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
 
     ASTNode *parameter_list = {0};
 
+    // Parse function parameters
     next = *peek_next_token(lexer);
     if (next.kind == TOKEN_IDENT) {
         parameter_list = parse_parameters(lexer);
@@ -420,7 +420,7 @@ ASTNode *parse_function(Lexer *lexer, String8 name) {
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
  
-    ASTNode *function = make_function(lexer->parser->arena, name, parameter_list, body);
+    ASTNode *function = make_function_decl(lexer->parser->arena, name, parameter_list, body);
 
     return function;
 }

@@ -1,21 +1,28 @@
 #include "parser.h"
 
 void codegen_ast(Arena *arena, ASTNode *root, String8 output_path) {
-    if (!output_path.str) {
-        output_path = str8_lit("main");
-    }
     String8 stripped_output_path = str8_strip_ext(output_path);
     char *asm_init_string = "    .text\n"
                             "    .global _start\n"
-                            "_start:\n";
+                            "_start:\n"
+                            "    call main\n"
+                            "    movq %rax, %rdi\n"
+                            "    movq $60, %rax\n"
+                            "    syscall\n";
 
     String8 asm_output_path = str8_concat(arena, stripped_output_path, str8_lit(".s"));
     FILE *asm_output_handle = fopen((char *)asm_output_path.str, "w");
 
     fprintf(asm_output_handle, "%s", asm_init_string);
-    fprintf(asm_output_handle, "    movq $60, %%rax\n");
-    fprintf(asm_output_handle, "    movq $%ld, %%rdi\n", root->return_val.expr->integer.value);
-    fprintf(asm_output_handle, "    syscall\n");
+
+    // Main function
+    u64 return_value = root->block.items[0]->function_decl.body->block.items[0]->return_val.expr->integer.value;
+    fprintf(asm_output_handle, "main:\n");
+    fprintf(asm_output_handle, "    pushq %%rbp\n");
+    fprintf(asm_output_handle, "    movq %%rsp, %%rbp\n");
+    fprintf(asm_output_handle, "    movq $%ld, %%rax\n", return_value);
+    fprintf(asm_output_handle, "    popq %%rbp\n");
+    fprintf(asm_output_handle, "    ret\n");
     
     fclose(asm_output_handle);
 }

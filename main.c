@@ -79,9 +79,13 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *program_ast = parse_program(&lexer);
-    print_ast(&global_arena, program_ast);
-    // codegen_ast(&global_arena, expr, output_file_path);
-    // asm_compile_and_link(&global_arena, output_file_path);
+    // print_ast(&global_arena, program_ast);
+
+    if (!output_file_path.str) {
+        output_file_path = str8_lit("main");
+    }
+    codegen_ast(&global_arena, program_ast, output_file_path);
+    asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
