@@ -50,7 +50,9 @@ b32 type_equal(Type* a, Type* b);
 
 Scope *make_child_scope(Scope *parent_scope);
 
-void walk_ast(ASTNode *node, Scope *scope);
+void collect_declarations(ASTNode *node, Scope *scope);
+void type_check_program(ASTNode *root_node, Scope* global_scope);
+void type_check_node(ASTNode *node, Scope* scope);
 
 u64 hash(String8 key);
 b32 equals(String8 a, String8 b);

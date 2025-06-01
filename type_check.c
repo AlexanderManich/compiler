@@ -10,7 +10,7 @@ String8 str8_from_type_kind(TypeKind kind) {
     switch(kind) {
         case TYPE_VOID: return str8_lit("void");
         case TYPE_S32: return str8_lit("s32");
-        default: fprintf(stderr, "No name defined for TypeKind %d", kind);
+        default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
     return (String8){0};
 }
@@ -42,28 +42,28 @@ Type *make_simple_type(Arena *arena, TypeKind kind) {
     return result;
 }
 
-Type *make_function_type(Arena *arena, ASTNode *func_decl) {
+Type *make_function_type(Arena *arena, ASTNode *node) {
     Type* result = push_array(arena, Type, 1);
     result->kind = TYPE_FUNCTION;
 
-    ASTNode *param_list = func_decl->function_decl.parameters;
+    ASTNode *param_list = node->function_decl.parameters;
     u64 param_count = param_list->parameter_list.size;
     result->params_count = param_count;
 
     result->params = push_array(arena, Type*, param_count);
 
-    for (u64 i = 0; i < param_count; ++i) {
+    for (u64 i = 0; i < param_count; i++) {
         ASTNode *param_node = param_list->parameter_list.items[i];
         Type *param_type = push_array(arena, Type, 1);
         param_type->kind = param_node->parameter.type->kind; 
         result->params[i] = param_type;
     }
 
-    result->return_type = func_decl->function_decl.return_type;
+    result->return_type = node->function_decl.return_type;
     return result;
 }
 
-Type *typecheck_expr(ASTNode *expr, Scope *scope) {
+Type *make_expr_type(ASTNode *expr, Scope *scope) {
     switch (expr->kind) {
         case NODE_CONST_INT: {
             return make_simple_type(scope->arena, TYPE_S32);
@@ -82,27 +82,25 @@ Scope *make_child_scope(Scope* parent_scope) {
     return child;
 }
 
-void walk_ast(ASTNode *node, Scope *scope) {
+void collect_declarations(ASTNode *node, Scope *scope) {
     switch (node->kind) {
     case NODE_BLOCK: {
-        Scope *block_scope = make_child_scope(scope);
         for (u64 i = 0; i < node->block.size; i++) {
-            walk_ast(node->block.items[i], block_scope);
+            // This is the declarations pass, meaning that this NODE_BLOCK is the "program" block / global block,
+            // hence we dont create a child scope
+            collect_declarations(node->block.items[i], scope);
         }
         break;
     }
     case NODE_FUNCTION_DECL: {
-        Scope *function_scope = make_child_scope(scope);
-        function_scope->expected_return_type = node->function_decl.return_type;
-
         Symbol *symbol = map_get(scope->symbols, node->function_decl.name);
         if (symbol) {
             if (symbol->is_defined) {
-                fprintf(stderr, "Redeclaration of function %*.s", str8_varg(node->function_decl.name));
-                exit(0);
+                fprintf(stderr, "Redeclaration of function %*.s\n", str8_varg(node->function_decl.name));
+                exit(1);
             } 
         } else {
-            Type* func_type = make_function_type(scope->arena, node);
+            Type *func_type = make_function_type(scope->arena, node);
             Symbol func_symbol = {
                 .identifier = node->function_decl.name,               
                 .type = func_type, 
@@ -110,22 +108,63 @@ void walk_ast(ASTNode *node, Scope *scope) {
             };
             map_insert(scope->arena, &scope->symbols, node->function_decl.name, func_symbol);
         }
-        
-        walk_ast(node->function_decl.body, function_scope);
-        break;
-    }
-    case NODE_RETURN: {
-        Type* expr_type = typecheck_expr(node->return_val.expr, scope);
-        Type *expected_return_type = scope->expected_return_type;
-        
-        if (!type_equals(expr_type, expected_return_type)) {
-            fprintf(stderr, "Mismatched return type. Expected: %*.s", str8_varg(str8_from_type_kind(expected_return_type->kind)));
-            exit(1);
-        }
         break;
     }
         default:
-        break;
+            break;
+    }
+}
+
+void type_check_program(ASTNode *root_node, Scope *global_scope) {
+    debug_assert(root_node->block.items);
+    for (u64 i = 0; i < root_node->block.size; i++) {
+        type_check_node(root_node->block.items[i], global_scope);
+    }
+}
+
+void type_check_node(ASTNode *node, Scope *scope) {
+    switch (node->kind) {
+        case NODE_BLOCK: {
+            Scope *block_scope = make_child_scope(scope);
+            for (u64 i = 0; i < node->block.size; i++) {
+                type_check_node(node->block.items[i], block_scope);
+            }
+            break;
+        }
+        case NODE_FUNCTION_DECL: {
+            Symbol *function_symbol = map_get(scope->symbols, node->function_decl.name);
+            debug_assert(function_symbol);
+
+            Scope *function_scope = make_child_scope(scope);
+            function_scope->expected_return_type = node->function_decl.return_type;
+
+            // Add function parameters to function scope
+            for (u64 i = 0; i < node->function_decl.parameters->parameter_list.size; i++) {
+                ASTNode *parameter = node->function_decl.parameters->parameter_list.items[i];
+                Symbol parameter_symbol = {
+                    .identifier = parameter->parameter.name,
+                    .type = parameter->parameter.type,
+                    .is_defined = true,
+                };
+                map_insert(function_scope->arena, &function_scope->symbols, parameter->parameter.name, parameter_symbol);
+            }
+
+            type_check_node(node->function_decl.body, function_scope);
+            break;
+        }
+        case NODE_RETURN: {
+            Type *expr_type = make_expr_type(node->return_val.expr, scope);
+            Type *expected_return_type = scope->expected_return_type;
+            
+            if (!type_equals(expr_type, expected_return_type)) {
+                fprintf(stderr, "Mismatched return type. Expected: %s\n", str8_from_type_kind(expected_return_type->kind).str);
+                exit(1);
+            }
+            break;
+        }
+        default:
+            fprintf(stderr, "Unexpected Node while type checking: %s\n", node_kind_name(node).str);
+            break;
     }
 }
 

@@ -130,8 +130,10 @@ String8 node_kind_name(ASTNode *node) {
             return str8_lit("return");
         case NODE_FUNCTION_DECL:
             return str8_lit("function declaration");
+        case NODE_BLOCK:
+            return str8_lit("block");
         default:
-            fprintf(stderr, "No name defined for node: %d", node->kind);
+            fprintf(stderr, "No name defined for node: %d\n", node->kind);
     }
 
     return (String8){0};

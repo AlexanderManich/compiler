@@ -80,10 +80,11 @@ int main(int argc, char **argv) {
 
     ASTNode *program_ast = parse_program(&lexer);
 
-    Scope root_scope = {0};
-    root_scope.arena = &parser_arena;
+    Scope global_scope = {0};
+    global_scope.arena = &parser_arena;
 
-    walk_ast(program_ast, &root_scope);
+    collect_declarations(program_ast, &global_scope);
+    type_check_program(program_ast, &global_scope);
 
     // if (!output_file_path.str) {
     //     output_file_path = str8_lit("main");
