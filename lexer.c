@@ -14,6 +14,7 @@ TokenLiteral token_literals[] = {
     [TOKEN_SEMICOLON]   = {.symbol = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON,   .precedence = -1},
     [TOKEN_COLON_COLON] = {.symbol = str8_lit_comp("::"), .kind = TOKEN_COLON_COLON, .precedence = -1},
     [TOKEN_COLON]       = {.symbol = str8_lit_comp(":"),  .kind = TOKEN_COLON,       .precedence = -1},
+    [TOKEN_ARROW]       = {.symbol = str8_lit_comp("->"), .kind = TOKEN_ARROW,       .precedence = -1},
     [TOKEN_COMMA]       = {.symbol = str8_lit_comp(","),  .kind = TOKEN_COMMA,       .precedence = 0},
     [TOKEN_EQUAL_EQUAL] = {.symbol = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL, .precedence = 90},
     [TOKEN_EQUAL]       = {.symbol = str8_lit_comp("="),  .kind = TOKEN_EQUAL,       .precedence = 10},
@@ -57,6 +58,8 @@ String8 token_kind_name(TokenKind kind) {
             return str8_lit("colon colon");
         case TOKEN_COLON:
             return str8_lit("colon");
+        case TOKEN_ARROW:
+            return str8_lit("arrow");
         case TOKEN_COMMA:
             return str8_lit("comma");
         case TOKEN_EQUAL:

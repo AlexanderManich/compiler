@@ -16,7 +16,7 @@ void codegen_ast(Arena *arena, ASTNode *root, String8 output_path) {
     fprintf(asm_output_handle, "%s", asm_init_string);
 
     // Main function
-    u64 return_value = root->block.items[0]->function_decl.body->block.items[0]->return_val.expr->integer.value;
+    u64 return_value = root->block.items[0]->function_decl.body->block.items[0]->return_val.expr->const_int.value;
     fprintf(asm_output_handle, "main:\n");
     fprintf(asm_output_handle, "    pushq %%rbp\n");
     fprintf(asm_output_handle, "    movq %%rsp, %%rbp\n");

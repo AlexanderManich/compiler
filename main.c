@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lexer.h"
+#include "type_check.h"
 #include "parser.h"
 #include "code_gen.h"
 #include "base/base_include.h"
-// #include "base/base_include.c"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
     String8 result = {0};
@@ -79,13 +79,17 @@ int main(int argc, char **argv) {
     // }
 
     ASTNode *program_ast = parse_program(&lexer);
-    // print_ast(&global_arena, program_ast);
 
-    if (!output_file_path.str) {
-        output_file_path = str8_lit("main");
-    }
-    codegen_ast(&global_arena, program_ast, output_file_path);
-    asm_compile_and_link(&global_arena, output_file_path);
+    Scope root_scope = {0};
+    root_scope.arena = &parser_arena;
+
+    walk_ast(program_ast, &root_scope);
+
+    // if (!output_file_path.str) {
+    //     output_file_path = str8_lit("main");
+    // }
+    // codegen_ast(&global_arena, program_ast, output_file_path);
+    // asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
@@ -94,3 +98,4 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "code_gen.c"
+#include "type_check.c"

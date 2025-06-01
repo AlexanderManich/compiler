@@ -1,6 +1,5 @@
 #include "lexer.h"
 #include "parser.h"
-#include "string.h"
 #include "base/base_include.h"
 
 String8 to_operator(Token *token) {
@@ -35,7 +34,7 @@ u64 calc_ast_tree_depth(ASTNode *tree) {
     if (tree->kind == NODE_RETURN) {
         return 1 + calc_ast_tree_depth(tree->return_val.expr);
     }
-    if (tree->kind == NODE_FUNCTION) {
+    if (tree->kind == NODE_FUNCTION_DECL) {
         return 1 + calc_ast_tree_depth(tree->function_decl.body);
     }
 
@@ -78,8 +77,8 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
     if (node->kind == NODE_IDENT) {
        memcpy(&buffer.grid[y * buffer.width + x], node->indentifier.name.str, node->indentifier.name.size); 
     }
-    if (node->kind == NODE_INT) {
-        String8 i32_as_s8 = str8_from_i32(arena ,node->integer.value);
+    if (node->kind == NODE_CONST_INT) {
+        String8 i32_as_s8 = str8_from_i32(arena ,node->const_int.value);
         memcpy(&buffer.grid[y * buffer.width + x], i32_as_s8.str, i32_as_s8.size);
     }
     if (node->kind == NODE_RETURN) {
@@ -88,7 +87,7 @@ CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *node, u32 x, u32 y) 
         memcpy(&buffer.grid[(y + 1) * buffer.width + x], "|", 1);
         _print_ast(arena, buffer, node->return_val.expr, x, y + 2);
     }
-    if (node->kind == NODE_FUNCTION) {
+    if (node->kind == NODE_FUNCTION_DECL) {
         // TODO: Change from sprintf, when i have str8 format string
         String8 node_name = node_kind_name(node);
         sprintf((char *)(buffer.grid + y * buffer.width + (x - (node_name.size + node->function_decl.name.size) / 2)),
@@ -123,14 +122,14 @@ String8 node_kind_name(ASTNode *node) {
             return str8_lit("variable declaration");
         case NODE_VAR_ASSIGN:
             return str8_lit("variable assign");
-        case NODE_INT:
-            return str8_lit("integer");
+        case NODE_CONST_INT:
+            return str8_lit("const integer");
         case NODE_BINARY_OP:
             return str8_lit("binary operator");
         case NODE_RETURN:
             return str8_lit("return");
-        case NODE_FUNCTION:
-            return str8_lit("function");
+        case NODE_FUNCTION_DECL:
+            return str8_lit("function declaration");
         default:
             fprintf(stderr, "No name defined for node: %d", node->kind);
     }
@@ -141,8 +140,8 @@ String8 node_kind_name(ASTNode *node) {
 // Make nodes
 ASTNode *make_number(Arena *arena, Token *token) {
     ASTNode *node = push_array(arena, ASTNode, 1);
-    node->kind = NODE_INT;
-    node->integer.value = i32_from_str8(token->text);
+    node->kind = NODE_CONST_INT;
+    node->const_int.value = i32_from_str8(token->text);
     return node;
 }
 
@@ -162,7 +161,7 @@ ASTNode *make_return(Arena *arena, ASTNode *expr) {
     return node;
 }
 
-ASTNode *make_parameter(Arena *arena, String8 name, String8 type) {
+ASTNode *make_parameter(Arena *arena, String8 name, Type *type) {
     ASTNode *node = push_array(arena, ASTNode, 1);
     node->kind = NODE_PARAMETER;
     node->parameter.name = name;
@@ -170,12 +169,13 @@ ASTNode *make_parameter(Arena *arena, String8 name, String8 type) {
     return node;
 }
 
-ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body) {
+ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, Type *return_type) {
     ASTNode *node = push_array(arena, ASTNode, 1);
-    node->kind = NODE_FUNCTION;
+    node->kind = NODE_FUNCTION_DECL;
     node->function_decl.name = name;
     node->function_decl.parameters = parameters;
     node->function_decl.body = body;
+    node->function_decl.return_type = return_type;
     return node;
 }
 
@@ -373,7 +373,7 @@ ASTNode *parse_parameter(Lexer *lexer) {
 
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_IDENT);
-    String8 param_type = next.text;
+    Type *param_type = make_simple_type(lexer->parser->arena, type_kind_from_str8(next.text));
 
     return make_parameter(lexer->parser->arena, param_ident, param_type);
 }
@@ -419,8 +419,20 @@ ASTNode *parse_function_decl(Lexer *lexer, String8 name) {
 
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
+
+    // Parse optional return type
+    Type* return_type = make_simple_type(lexer->parser->arena, TYPE_VOID);
+    // If main function implicitly return s32
+    if (str8_compare(name, str8_lit("main"))) return_type = make_simple_type(lexer->parser->arena, TYPE_S32);
+    next = *peek_next_token(lexer);
+    if (next.kind == TOKEN_ARROW) {
+        eat_token(lexer);
+        next = *peek_next_token(lexer);
+        parser_expect(lexer, &next, TOKEN_IDENT);
+        return_type = make_simple_type(lexer->parser->arena, type_kind_from_str8(next.text));
+    }
  
-    ASTNode *function = make_function_decl(lexer->parser->arena, name, parameter_list, body);
+    ASTNode *function = make_function_decl(lexer->parser->arena, name, parameter_list, body, return_type);
 
     return function;
 }

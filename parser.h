@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "lexer.h"
 #include "base/base_arena.h"
+#include "type_check.h"
 
 typedef struct Parser Parser;
 struct Parser {
@@ -18,10 +19,10 @@ typedef enum NodeKind {
     NODE_PARAMETER_LIST,
     NODE_VAR_DECL,
     NODE_VAR_ASSIGN,
-    NODE_INT,
+    NODE_CONST_INT,
     NODE_BINARY_OP,
     NODE_RETURN,
-    NODE_FUNCTION,
+    NODE_FUNCTION_DECL,
     NODE_IF,
     NODE_BLOCK
 } ASTNodeKind;
@@ -30,13 +31,13 @@ typedef struct ASTNode ASTNode;
 struct ASTNode {
     ASTNodeKind kind;
     union {
-        struct { i64 value;} integer;
-        struct { String8 name;} indentifier;
+        struct { i64 value;} const_int;
+        struct { String8 name; Type *type;} indentifier;
         struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
-        struct { String8 name; String8 type;} parameter;
+        struct { String8 name; Type *type;} parameter;
         struct { ASTNode **items; u64 size; u64 capacity;} parameter_list;
-        struct { String8 name; ASTNode* parameters; ASTNode *body;} function_decl;
+        struct { String8 name; ASTNode* parameters; ASTNode *body; Type *return_type;} function_decl;
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
@@ -55,9 +56,9 @@ i32 get_precedence_from_kind(TokenKind kind);
 ASTNode *make_number(Arena *arena, Token *token); 
 ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
 ASTNode *make_return(Arena *arena, ASTNode *expr);
-ASTNode *make_parameter(Arena* arena, String8 name, String8 type);
+ASTNode *make_parameter(Arena* arena, String8 name, Type *type);
 // ASTNode *make_parameters(Arena *arena, String8 name, String8 type);
-ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body);
+ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, Type *return_type);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
 ASTNode *make_indentifier(Arena *arena, Token *token);
 ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);

@@ -20,6 +20,7 @@ typedef enum TokenKind {
     TOKEN_SEMICOLON,
     TOKEN_COLON_COLON,
     TOKEN_COLON,
+    TOKEN_ARROW,
     TOKEN_COMMA,
     TOKEN_EQUAL_EQUAL,
     TOKEN_EQUAL,
