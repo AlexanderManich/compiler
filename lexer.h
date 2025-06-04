@@ -50,8 +50,9 @@ struct Token {
     String8 text;
 
     i32 start_line;
-    i32 start_char;
     i32 end_line;
+    
+    i32 start_char;
     i32 end_char; 
 };
 

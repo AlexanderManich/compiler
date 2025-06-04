@@ -111,7 +111,7 @@ void trim_input_left(Lexer *lexer) {
     }
 }
 
-bool lexer_starts_with(Lexer *lexer, const String8 prefix) {
+bool lexer_starts_with(Lexer *lexer, String8 prefix) {
     if (prefix.str == 0) {
         return true;
     }
@@ -245,7 +245,6 @@ Token *peek_token(Lexer *lexer, i64 lookahead_index) {
 
     if (lookahead_index == 0) return peek_next_token(lexer);
 
-    // Figure this comparison out so we dont cast lookahead_index
     while (lexer->incoming_tokens_count <= lookahead_index) {
         make_new_token(lexer);
         lexer->incoming_tokens_count++;
@@ -282,6 +281,7 @@ TokenKind is_keyword(Token *token) {
     if (str8_compare(token->text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
     if (str8_compare(token->text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
 
+    // TODO: Fix. TokenKind 0 is TOKEN_PLUS which doesn't make sense to return here
     return (TokenKind)0;
 }
 
