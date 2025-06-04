@@ -110,6 +110,23 @@ void collect_declarations(ASTNode *node, Scope *scope) {
         }
         break;
     }
+    case NODE_VAR_DECL: {
+        Symbol *symbol = map_get(scope->symbols, node->var_decl.name);
+        if (symbol) {
+            if (symbol->is_defined) {
+                fprintf(stderr, "Redeclaration of variable %*.s\n", str8_varg(node->function_decl.name));
+                exit(1);
+            }
+        } else {
+            Symbol var_symbol = {
+                .identifier = node->var_decl.name,
+                .type = node->var_decl.type,
+                .is_defined = true
+            };
+            map_insert(scope->arena, &scope->symbols, node->var_decl.name, var_symbol);
+        }
+        break;
+    }
         default:
             break;
     }

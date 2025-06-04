@@ -41,7 +41,7 @@ struct ASTNode {
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
-        struct { String8 name; ASTNode *expr;} var_decl;
+        struct { String8 name; Type *type; ASTNode *expr;} var_decl;
     };
 };
 
@@ -61,7 +61,7 @@ ASTNode *make_parameter(Arena* arena, String8 name, Type *type);
 ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, Type *return_type);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
 ASTNode *make_indentifier(Arena *arena, Token *token);
-ASTNode *make_var_decl(Arena *arena, String8 name, ASTNode *expr);
+ASTNode *make_var_decl(Arena *arena, String8 name, Type *type, ASTNode *expr);
 ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
 
 ASTNode *parse_program(Lexer *lexer);

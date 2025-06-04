@@ -82,9 +82,9 @@ int main(int argc, char **argv) {
 
     Scope global_scope = {0};
     global_scope.arena = &parser_arena;
-
+    print_ast(&global_arena, program_ast);
     collect_declarations(program_ast, &global_scope);
-    type_check_program(program_ast, &global_scope);
+    // type_check_program(program_ast, &global_scope);
 
     // if (!output_file_path.str) {
     //     output_file_path = str8_lit("main");
