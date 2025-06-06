@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "ir.h"
 
 void codegen_ast(Arena *arena, ASTNode *root, String8 output_path) {
     String8 stripped_output_path = str8_strip_ext(output_path);
@@ -15,15 +16,16 @@ void codegen_ast(Arena *arena, ASTNode *root, String8 output_path) {
 
     fprintf(asm_output_handle, "%s", asm_init_string);
 
-    // Main function
-    u64 return_value = root->block.items[0]->function_decl.body->block.items[0]->return_val.expr->const_int.value;
-    fprintf(asm_output_handle, "main:\n");
-    fprintf(asm_output_handle, "    pushq %%rbp\n");
-    fprintf(asm_output_handle, "    movq %%rsp, %%rbp\n");
-    fprintf(asm_output_handle, "    movq $%ld, %%rax\n", return_value);
-    fprintf(asm_output_handle, "    popq %%rbp\n");
-    fprintf(asm_output_handle, "    ret\n");
-    
+    for (u64 i = 0; i < root->block.size; i++) {
+        ASTNode *node = root->block.items[i];
+        if (node->kind == NODE_FUNCTION_DECL) {
+            fprintf(asm_output_handle, "%.*s:\n", str8_varg(node->function_decl.name));
+            fprintf(asm_output_handle, "    pushq %%rbp\n    movq %%rsp, %%rbp\n");
+            ir_gen_function(node);
+            codegen_ir(asm_output_handle); 
+        }
+    }
+
     fclose(asm_output_handle);
 }
 
@@ -39,4 +41,25 @@ void asm_compile_and_link(Arena *arena, String8 out_flag) {
 
     system(asm_command);
     system(link_command);
+}
+
+void codegen_ir(FILE *out) {
+    // TODO: Map virtual registers to real registers
+    const char *reg_names[] = {"%rax", "%rbx", "%rcx", "%rdx"};
+    for (int i = 0; i < ir_count; ++i) {
+        Instruction *inst = &ir_code[i];
+        switch (inst->op) {
+            case IR_LOAD_CONST:
+                fprintf(out, "    movq $%d, %s\n", inst->imm, reg_names[inst->dest]);
+                break;
+            case IR_MOV:
+                fprintf(out, "    movq %s, %s\n", reg_names[inst->src1], reg_names[inst->dest]);
+                break;
+            case IR_RET:
+                fprintf(out, "    movq %s, %%rax\n", reg_names[inst->src1]);
+                fprintf(out, "    popq %%rbp\n");
+                fprintf(out, "    ret\n");
+                break;
+        }
+    }
 }

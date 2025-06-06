@@ -5,6 +5,7 @@
 #include "type_check.h"
 #include "parser.h"
 #include "code_gen.h"
+#include "ir.h"
 #include "base/base_include.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
@@ -94,8 +95,8 @@ int main(int argc, char **argv) {
     // if (!output_file_path.str) {
     //     output_file_path = str8_lit("main");
     // }
-    // codegen_ast(&global_arena, program_ast, output_file_path);
-    // asm_compile_and_link(&global_arena, output_file_path);
+    codegen_ast(&global_arena, program_ast, output_file_path);
+    asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
@@ -103,5 +104,6 @@ int main(int argc, char **argv) {
 #include "base/base_include.c"
 #include "lexer.c"
 #include "parser.c"
-#include "code_gen.c"
 #include "type_check.c"
+#include "ir.c"
+#include "code_gen.c"
