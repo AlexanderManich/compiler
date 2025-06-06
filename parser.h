@@ -11,6 +11,7 @@
 typedef struct Parser Parser;
 struct Parser {
     Arena *arena;
+    TypeSet *types;
 };
 
 typedef enum NodeKind {

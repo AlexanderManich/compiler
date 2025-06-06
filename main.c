@@ -66,8 +66,11 @@ int main(int argc, char **argv) {
     Arena parser_arena = {0};
     arena_init(&parser_arena, parser_arena_buffer, parser_arena_size);
 
+    TypeSet type_set = {0};
+
     Parser parser = {0};
     parser.arena = &parser_arena;
+    parser.types = &type_set;
 
     Lexer lexer = {0};
     lexer.input = input;
@@ -82,6 +85,8 @@ int main(int argc, char **argv) {
 
     Scope global_scope = {0};
     global_scope.arena = &parser_arena;
+    global_scope.types = &type_set;
+
     print_ast(&global_arena, program_ast);
     collect_declarations(program_ast, &global_scope);
     // type_check_program(program_ast, &global_scope);

@@ -374,7 +374,8 @@ ASTNode *parse_parameter(Lexer *lexer) {
 
     next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_IDENT);
-    Type *param_type = make_simple_type(lexer->parser->arena, type_kind_from_str8(next.text));
+
+    Type *param_type = make_simple_type(lexer->parser->arena, lexer->parser->types, type_kind_from_str8(next.text));
 
     return make_parameter(lexer->parser->arena, param_ident, param_type);
 }
@@ -425,15 +426,15 @@ ASTNode *parse_function_decl(Lexer *lexer, String8 name) {
     parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
 
     // Parse optional return type
-    Type* return_type = make_simple_type(lexer->parser->arena, TYPE_VOID);
+    Type* return_type = make_simple_type(lexer->parser->arena, lexer->parser->types, TYPE_VOID);
     // If main function implicitly return s32
-    if (str8_compare(name, str8_lit("main"))) return_type = make_simple_type(lexer->parser->arena, TYPE_S32);
+    if (str8_compare(name, str8_lit("main"))) return_type = make_simple_type(lexer->parser->arena, lexer->parser->types, TYPE_S32);
     next = *peek_next_token(lexer);
     if (next.kind == TOKEN_ARROW) {
         eat_token(lexer);
         next = *peek_next_token(lexer);
         parser_expect(lexer, &next, TOKEN_IDENT);
-        return_type = make_simple_type(lexer->parser->arena, type_kind_from_str8(next.text));
+        return_type = make_simple_type(lexer->parser->arena, lexer->parser->types, type_kind_from_str8(next.text));
     }
  
     ASTNode *function = make_function_decl(lexer->parser->arena, name, parameter_list, body, return_type);
@@ -443,14 +444,14 @@ ASTNode *parse_function_decl(Lexer *lexer, String8 name) {
 
 ASTNode *parse_var_decl(Lexer *lexer, String8 name) {
     // Expect colon followed by type followed by colon, otherwise expect colon colon
-    Type *var_type = make_simple_type(lexer->parser->arena, TYPE_VOID);
+    Type *var_type = make_simple_type(lexer->parser->arena, lexer->parser->types, TYPE_VOID);
     Token next = *peek_next_token(lexer);
     if (next.kind != TOKEN_COLON_COLON) {
         parser_expect(lexer, &next, TOKEN_COLON);
         next = *peek_next_token(lexer);
         if (next.kind == TOKEN_IDENT) {
             eat_token(lexer);
-            var_type = make_simple_type(lexer->parser->arena, type_kind_from_str8(next.text));
+            var_type = make_simple_type(lexer->parser->arena, lexer->parser->types, type_kind_from_str8(next.text));
         }
         parser_expect(lexer, &next, TOKEN_COLON);
     } else {
