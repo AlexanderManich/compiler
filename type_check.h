@@ -12,8 +12,8 @@ typedef enum TypeKind {
 typedef struct Type Type;
 struct Type {
     TypeKind kind;
-    struct Type* return_type;
-    struct Type** params;
+    Type* return_type;
+    Type** params;
     u64 params_count;
 };
 
@@ -54,10 +54,8 @@ String8 str8_from_type_kind(TypeKind kind);
 
 Type simple_type(TypeKind kind);
 Type *make_simple_type(Arena *arena, TypeSet *type_set, TypeKind kind);
-Type make_function_type_value(ASTNode *node);
 Type *make_function_type(Arena *arena, TypeSet *type_set, ASTNode *node);
-Type *make_var_type(Arena *arena, TypeSet *type_set, ASTNode *node, struct Scope *scope);
-Type *make_expr_type(Arena *arena, TypeSet *type_set, ASTNode *expr, struct Scope *scope);
+Type *make_expr_type(Arena *arena, TypeSet *type_set, ASTNode *expr);
 
 b32 type_equals(Type* a, Type* b);
 
@@ -65,7 +63,8 @@ Scope *make_child_scope(Scope *parent_scope);
 
 void collect_declarations(ASTNode *node, Scope *scope);
 void type_check_program(ASTNode *root_node, Scope* global_scope);
-void type_check_node(ASTNode *node, Scope* scope);
+void type_check_node(ASTNode *node, Scope *scope);
+Type *type_resolve(String8 type_name, Scope *scope);
 
 u64 str8_hash(String8 key);
 b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol value);
