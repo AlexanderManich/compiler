@@ -16,14 +16,17 @@ struct Parser {
 
 typedef enum NodeKind {
     NODE_IDENT,
-    NODE_PARAMETER,
-    NODE_PARAMETER_LIST,
+    NODE_DECL_PARAMETER,
+    NODE_DECL_PARAMETER_LIST,
+    NODE_CALL_PARAMETER,
+    NODE_CALL_PARAMETER_LIST,
     NODE_VAR_DECL,
     NODE_VAR_ASSIGN,
     NODE_CONST_INT,
     NODE_BINARY_OP,
     NODE_RETURN,
     NODE_FUNCTION_DECL,
+    NODE_FUNCTION_CALL,
     NODE_IF,
     NODE_BLOCK
 } ASTNodeKind;
@@ -40,6 +43,7 @@ struct ASTNode {
         struct { String8 name; String8 type_name; } parameter;
         struct { ASTNode **items; u64 size; u64 capacity;} parameter_list;
         struct { String8 name; ASTNode* parameters; ASTNode *body; String8 return_type_name; } function_decl;
+        struct { String8 name; ASTNode* parameters; } function_call;
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
@@ -58,7 +62,7 @@ i32 get_precedence_from_kind(TokenKind kind);
 ASTNode *make_number(Arena *arena, Token *token); 
 ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
 ASTNode *make_return(Arena *arena, ASTNode *expr);
-ASTNode *make_parameter(Arena* arena, String8 name, String8 type_name);
+ASTNode *make_decl_parameter(Arena* arena, String8 name, String8 type_name);
 // ASTNode *make_parameters(Arena *arena, String8 name, String8 type);
 ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, String8 return_type_name);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
@@ -72,12 +76,17 @@ ASTNode *parse_program(Lexer *lexer);
 ASTNode *parse_leaf(Lexer *lexer);
 ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
 ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence);
+ASTNode *parse_function_call(Lexer *lexer, String8 name);
+ASTNode *parse_call_parameter(Lexer *lexer);
+ASTNode *parse_call_parameters(Lexer *lexer);
 
 // Statement parsing
 ASTNode *parse_statement(Lexer *lexer);
 ASTNode *parse_statements(Lexer *lexer);
 
 ASTNode* parse_function_decl(Lexer *lexer, String8 name);
+ASTNode* parse_decl_parameter(Lexer *lexer);
+ASTNode* parse_decl_parameters(Lexer *lexer);
 
 ASTNode* parse_var_decl(Lexer *lexer, String8 name);
 ASTNode* parse_var_assign(Lexer *lexer, String8 name);
@@ -90,16 +99,7 @@ void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
 // Parse tree printing...
-typedef struct CharGrid CharGrid;
-struct CharGrid {
-    u8 *grid;
-    u32 height;
-    u32 width;
-};
-
-u64 calc_ast_tree_depth(ASTNode *tree);
-void print_ast(Arena *arena, ASTNode *tree);
-CharGrid _print_ast(Arena *arena, CharGrid buffer, ASTNode *tree, u32 x, u32 y);
+void dump_ast(ASTNode *node, i32 depth);
 
 // String/Number conversions
 i32 i32_from_str8(String8 str);

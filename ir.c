@@ -52,7 +52,7 @@ void ir_gen_function(ASTNode *func_node) {
     register_counter = 0;
 
     for (u64 i = 0; i < func_node->function_decl.parameters->parameter_list.size; i++) {
-        ASTNode *param = func_node->function_decl.parameters->parameter_list.items[i];
+        // ASTNode *param = func_node->function_decl.parameters->parameter_list.items[i];
     }
 
     for (u64 i = 0; i < func_node->function_decl.body->block.size; i++) {

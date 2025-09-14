@@ -180,7 +180,9 @@ void type_check_node(ASTNode *node, Scope *scope) {
             Type *expected_return_type = scope->expected_return_type;
             
             if (expr_type != expected_return_type) {
-                fprintf(stderr, "Mismatched return type. Expected: %s\n", str8_from_type_kind(expected_return_type->kind).str);
+                fprintf(stderr, "Mismatched return type. Expected type %s, but got type %s\n", 
+                    str8_from_type_kind(expected_return_type->kind).str,
+                    str8_from_type_kind(expr_type->kind).str);
             }
             break;
         }

@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     global_scope.arena = &parser_arena;
     global_scope.types = &type_set;
 
-    print_ast(&global_arena, program_ast);
+    dump_ast(program_ast, 0);
     collect_declarations(program_ast, &global_scope);
     type_check_program(program_ast, &global_scope);
 

@@ -5,7 +5,7 @@ typedef enum Op {
     IR_RET,
     IR_MOV,
     IR_LOAD_CONST,
-    IR_ADD,
+    // IR_ADD,
 } Op;
 
 typedef struct Instruction Instruction;
