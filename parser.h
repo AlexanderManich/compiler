@@ -34,20 +34,20 @@ typedef enum NodeKind {
 typedef struct ASTNode ASTNode;
 struct ASTNode {
     ASTNodeKind kind;
-    Type *type;
+
     union {
         struct { i64 value;} const_int;
         struct { String8 name; } indentifier;
         struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
         struct { ASTNode *expr;} return_val;
-        struct { String8 name; String8 type_name; } parameter;
+        struct { String8 name; TypeNode *type; } parameter;
         struct { ASTNode **items; u64 size; u64 capacity;} parameter_list;
-        struct { String8 name; ASTNode* parameters; ASTNode *body; String8 return_type_name; } function_decl;
+        struct { String8 name; ASTNode* parameters; ASTNode *body; TypeNode *return_type; } function_decl;
         struct { String8 name; ASTNode* parameters; } function_call;
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
-        struct { String8 name; String8 type_name; ASTNode *expr;} var_decl;
+        struct { String8 name; TypeNode *type; ASTNode *expr;} var_decl;
     };
 };
 
@@ -62,13 +62,14 @@ i32 get_precedence_from_kind(TokenKind kind);
 ASTNode *make_number(Arena *arena, Token *token); 
 ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
 ASTNode *make_return(Arena *arena, ASTNode *expr);
-ASTNode *make_decl_parameter(Arena* arena, String8 name, String8 type_name);
-// ASTNode *make_parameters(Arena *arena, String8 name, String8 type);
-ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, String8 return_type_name);
+ASTNode *make_decl_parameter(Arena* arena, String8 name, TypeNode *type);
+ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, TypeNode *return_type);
 ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
 ASTNode *make_indentifier(Arena *arena, Token *token);
-ASTNode *make_var_decl(Arena *arena, String8 name, String8 type_name, ASTNode *expr);
+ASTNode *make_var_decl(Arena *arena, String8 name, TypeNode* type, ASTNode *expr);
 ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
+
+TypeNode *make_type_node_identifier(Arena *arena, String8 name);
 
 ASTNode *parse_program(Lexer *lexer);
 
@@ -90,6 +91,8 @@ ASTNode* parse_decl_parameters(Lexer *lexer);
 
 ASTNode* parse_var_decl(Lexer *lexer, String8 name);
 ASTNode* parse_var_assign(Lexer *lexer, String8 name);
+
+TypeNode* parse_base_type(Lexer *lexer);
 
 // Keywords parsing
 ASTNode *parse_if(Lexer *lexer);

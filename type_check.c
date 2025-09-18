@@ -23,30 +23,28 @@ Type *make_simple_type(Arena *arena, TypeSet *type_set, TypeKind kind) {
     return type_intern(arena, &type_set, &temp_type);
 }
 
-Type *make_function_type(Arena *arena, TypeSet *type_set, ASTNode *node) {
-    Type func_type = {0};
-    func_type.kind = TYPE_FUNCTION;
+TypeNode *make_type_node_function(Arena *arena, ASTNode *node) {
+    TypeNode *type_node = push_array(arena, TypeNode, 1);
+    type_node->kind = TYPE_NODE_FUNCTION;
     
     ASTNode *param_list = node->function_decl.parameters;
     u64 param_count = param_list->parameter_list.size;
     
-    func_type.params = push_array(arena, Type*, param_count);
-    func_type.params_count = param_count;
+    type_node->function.params = push_array(arena, TypeNode*, param_count);
+    type_node->function.param_count = param_count;
 
     for (u64 i = 0; i < param_count; i++) {
         ASTNode *param_node = param_list->parameter_list.items[i];
-        func_type.params[i] = param_node->type;
+        type_node->function.params[i] = param_node->parameter.type;
     }
-    func_type.return_type = node->type;
 
-    return type_intern(arena, &type_set, &func_type);
+    type_node->function.return_type = node->function_decl.return_type;
+
+    return type_node;
 }
 
 // Variable type inference: use explicit type or infer from initializer
 Type *make_var_type(Arena *arena, TypeSet *type_set, ASTNode *node) {
-    if (node->type) {
-        return node->type;
-    }
     if (node->var_decl.expr) {
         return make_expr_type(arena, type_set, node->var_decl.expr);
     }
@@ -69,8 +67,47 @@ Scope *make_child_scope(Scope* parent_scope) {
     child->arena = parent_scope->arena;
     child->parent = parent_scope;
     child->expected_return_type = parent_scope->expected_return_type;
+    child->symbols = parent_scope->symbols;
     child->types = parent_scope->types;
     return child;
+}
+
+Type* resolve_type_node(TypeNode *node, Scope *scope) {
+    switch (node->kind) {
+        case TYPE_NODE_IDENTIFIER: {
+            String8 name = node->identifier.name;
+            Type *type = type_resolve(name, scope);
+            if (!type) {
+                fprintf(stderr, "Unknown type: %.*s\n", str8_varg(name));
+            }
+            return type;
+        }
+        case TYPE_NODE_FUNCTION : {
+            Type* type = push_array(scope->arena, Type, 1);
+            type->kind = TYPE_FUNCTION;
+            type->function.return_type = resolve_type_node(node->function.return_type, scope);
+            type->function.param_count = node->function.param_count;
+            type->function.params = push_array(scope->arena, Type*, type->function.param_count);
+            for (u64 i = 0; i < type->function.param_count; i++) {
+                type->function.params[i] = resolve_type_node(node->function.params[i], scope);
+            }
+            return type;
+        }
+        default:
+            fprintf(stderr, "Unknown type node kind: %d", node->kind);
+            return (Type*){0};
+    }
+}
+
+void resolve_symbol_types(SymbolTable *symbols, Scope *scope) {
+    if (!symbols->value.type) {
+        symbols->value.type = resolve_type_node(symbols->value.type_node, scope);
+    }
+    for (u64 i = 0; i < 4; i++) {
+        if (symbols->child[i]) {
+            resolve_symbol_types(symbols->child[i], scope);
+        }
+    }
 }
 
 Type* type_resolve(String8 type_name, Scope *scope) {
@@ -79,8 +116,23 @@ Type* type_resolve(String8 type_name, Scope *scope) {
     Symbol *type_symbol = table_get(scope->symbols, type_name);
     if (type_symbol && type_symbol->type) return type_symbol->type;
 
-    fprintf(stderr, "Unknown type: %.*s\n", str8_varg(type_name));
     return (Type*){0};
+}
+
+Type* resolve_return_type(ASTNode *return_expr, Scope *scope) {
+    switch (return_expr->kind) {
+        case NODE_IDENT: {
+            return type_resolve(return_expr->indentifier.name, scope);
+        }
+        case NODE_FUNCTION_CALL: {
+            return type_resolve(return_expr->function_call.name, scope)->function.return_type;
+            break;
+        }
+        default: {
+            fprintf(stderr, "Not good!");
+            return (Type *){0};
+        }
+    }
 }
 
 void collect_declarations(ASTNode *node, Scope *scope) {
@@ -100,10 +152,11 @@ void collect_declarations(ASTNode *node, Scope *scope) {
                 fprintf(stderr, "Redeclaration of function %*.s\n", str8_varg(node->function_decl.name));
             } 
         } else {
-            Type *func_type = make_function_type(scope->arena, scope->types, node);
+            TypeNode *type_node= make_type_node_function(scope->arena, node);
             Symbol func_symbol = {
                 .identifier = node->function_decl.name,               
-                .type = func_type, 
+                .type = 0,
+                .type_node = type_node,
                 .is_defined = true
             };
             table_insert(scope->arena, &scope->symbols, node->function_decl.name, func_symbol);
@@ -154,19 +207,16 @@ void type_check_node(ASTNode *node, Scope *scope) {
 
             Scope *function_scope = make_child_scope(scope);
 
-            // Resolve type from name
-            String8 return_type_name = node->function_decl.return_type_name;
-            Type *return_type = type_resolve(return_type_name, scope);
+            Type *return_type = type_resolve(node->function_decl.return_type->identifier.name, scope);
 
-            node->type = return_type;
-            function_scope->expected_return_type = node->type;
+            function_scope->expected_return_type = return_type;
 
             // Add function parameters to function scope
             for (u64 i = 0; i < node->function_decl.parameters->parameter_list.size; i++) {
                 ASTNode *parameter = node->function_decl.parameters->parameter_list.items[i];
                 Symbol parameter_symbol = {
                     .identifier = parameter->parameter.name,
-                    .type = parameter->type,
+                    .type = resolve_type_node(parameter->parameter.type, scope),
                     .is_defined = true,
                 };
                 table_insert(function_scope->arena, &function_scope->symbols, parameter->parameter.name, parameter_symbol);
@@ -176,13 +226,14 @@ void type_check_node(ASTNode *node, Scope *scope) {
             break;
         }
         case NODE_RETURN: {
-            Type *expr_type = make_expr_type(scope->arena, scope->types, node->return_val.expr);
+            ASTNode *return_expr = node->return_val.expr;
+            Type *return_expr_type = resolve_return_type(return_expr, scope);
             Type *expected_return_type = scope->expected_return_type;
             
-            if (expr_type != expected_return_type) {
+            if (return_expr_type != expected_return_type) {
                 fprintf(stderr, "Mismatched return type. Expected type %s, but got type %s\n", 
                     str8_from_type_kind(expected_return_type->kind).str,
-                    str8_from_type_kind(expr_type->kind).str);
+                    str8_from_type_kind(return_expr_type->kind).str);
             }
             break;
         }
@@ -231,12 +282,12 @@ u64 type_hash(Type *type) {
 
     switch (type->kind) {
         case TYPE_FUNCTION: {
-            h ^= type->params_count;
-            for (u64 i = 0; i < type->params_count; i++) {
-                h ^= (uintptr_t)type->params[i] >> 3;
+            h ^= type->function.param_count;
+            for (u64 i = 0; i < type->function.param_count; i++) {
+                h ^= (uintptr_t)type->function.params[i] >> 3;
                 h *= 0x9e3779b97f4a7c15;
             }
-            h ^= ((uintptr_t)type->return_type >> 3);
+            h ^= ((uintptr_t)type->function.return_type >> 3);
             break;
         }
 
@@ -252,11 +303,11 @@ b32 type_equals(Type *a, Type *b) {
     if (!(a && b)) return false;
     if (a->kind != b->kind) return false;
     if (a->kind == TYPE_FUNCTION) {
-        if (a->params_count != b->params_count) return false;
-        if (a->return_type != b->return_type) return false;
+        if (a->function.param_count != b->function.param_count) return false;
+        if (a->function.return_type != b->function.return_type) return false;
 
-        for (u64 i = 0; i < a->params_count; i++) {
-            if (a->params[i] != b->params[i]) return false;
+        for (u64 i = 0; i < a->function.param_count; i++) {
+            if (a->function.params[i] != b->function.params[i]) return false;
         }
     }
 
@@ -277,4 +328,17 @@ Type *type_intern(Arena *arena, TypeSet **set, Type *key) {
     (*set)->key = key_storage; 
 
     return key_storage;
+}
+
+void dump_declarations(SymbolTable *symbols) {
+    if (symbols) {
+        if (symbols->value.is_defined) {
+            printf("Symbol: %.*s\n", str8_varg(symbols->value.identifier));
+        }
+        for (i32 i = 0; i < 4; i++) {
+            if (symbols->child[i]) {
+                dump_declarations(symbols->child[i]);
+            }
+        }
+    }
 }

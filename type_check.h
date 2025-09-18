@@ -12,15 +12,34 @@ typedef enum TypeKind {
 typedef struct Type Type;
 struct Type {
     TypeKind kind;
-    Type* return_type;
-    Type** params;
-    u64 params_count;
+
+    union {
+        struct { Type* return_type; Type** params; u64 param_count; } function;
+    };
+};
+
+typedef enum TypeNodeKind {
+    TYPE_NODE_IDENTIFIER,
+    TYPE_NODE_FUNCTION,
+    // TYPE_NODE_POINTER,
+    // TYPE_NODE_ARRAY,
+} TypeNodeKind;
+
+typedef struct TypeNode TypeNode;
+struct TypeNode {
+    TypeNodeKind kind;
+
+    union {
+        struct { String8 name;} identifier;
+        struct { TypeNode *return_type; TypeNode **params; u64 param_count; } function;
+    };
 };
 
 typedef struct Symbol Symbol;
 struct Symbol {
     String8 identifier;
     Type *type;
+    TypeNode *type_node;
     b32 is_defined;
 };
 
@@ -61,10 +80,12 @@ b32 type_equals(Type* a, Type* b);
 
 Scope *make_child_scope(Scope *parent_scope);
 
+void dump_declarations(SymbolTable* symbols);
 void collect_declarations(ASTNode *node, Scope *scope);
 void type_check_program(ASTNode *root_node, Scope* global_scope);
 void type_check_node(ASTNode *node, Scope *scope);
 Type *type_resolve(String8 type_name, Scope *scope);
+void resolve_symbol_types(SymbolTable *symbols, Scope *scope);
 
 u64 str8_hash(String8 key);
 b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol value);
