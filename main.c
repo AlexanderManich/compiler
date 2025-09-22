@@ -28,9 +28,13 @@ String8 read_entire_file(Arena *arena, String8 file_path) {
     return result;
 }
 
+#define GLOBAL_ARENA_SIZE MB(1)
+static u8 global_arena_buffer[GLOBAL_ARENA_SIZE];
+#define PARSER_ARENA_SIZE MB(1)
+static u8 parser_arena_buffer[PARSER_ARENA_SIZE];
+
 int main(int argc, char **argv) {
     u64 global_arena_size = MB(1);
-    u8 global_arena_buffer[global_arena_size];
     Arena global_arena = {0};
     arena_init(&global_arena, global_arena_buffer, global_arena_size);
     
@@ -62,33 +66,35 @@ int main(int argc, char **argv) {
 
     String8 input = read_entire_file(&global_arena, input_file_path);
 
-    u64 parser_arena_size = MB(1);
-    u8 parser_arena_buffer[parser_arena_size];
     Arena parser_arena = {0};
-    arena_init(&parser_arena, parser_arena_buffer, parser_arena_size);
+    arena_init(&parser_arena, parser_arena_buffer, PARSER_ARENA_SIZE);
 
-    TypeSet type_set = {0};
-
+    
     Parser parser = {0};
     parser.arena = &parser_arena;
-
+    
     Lexer lexer = {0};
     lexer.input = input;
     lexer.parser = &parser;
-
+    
     // for (Token *token = peek_next_token(&lexer); token->kind != TOKEN_END; token = peek_next_token(&lexer)) {
     //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
     //     eat_token(&lexer);
     // }
-
+    
     DeclList program_ast = parse_program(&lexer);
-
+    
+    TypeSet type_set = {0};
     Scope global_scope = {0};
+
     global_scope.arena = &parser_arena;
     global_scope.types = &type_set;
 
-    // dump_ast(program_ast, 0);
-    // collect_declarations(program_ast, &global_scope);
+    // ast_print(program_ast, 0);
+    register_builtin_symbols(&global_scope);
+    register_decls(program_ast, &global_scope);
+    // symbol_print_decls(global_scope.symbols);
+    resolve_symbols(global_scope.symbols, &global_scope);
 
     // if (!output_file_path.str) {
     //     output_file_path = str8_lit("main");

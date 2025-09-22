@@ -49,8 +49,7 @@ struct Symbol {
     SymbolKind kind;
     SymbolState state;
     Type *type;
-    ASTNode *node; 
-    b32 is_defined;
+    Decl *decl; 
 };
 
 // https://nullprogram.com/blog/2023/09/30/ 
@@ -67,8 +66,7 @@ struct TypeSet {
     Type *key;
 };
 
-static TypeSet **GLOBAL_TYPESET = {0};
-static SymbolTable **GLOBAL_ORDERED_SYMBOLS = {0};
+static SymbolTable *GLOBAL_ORDERED_SYMBOLS = {0};
 
 typedef struct Scope Scope;
 struct Scope {
@@ -96,25 +94,33 @@ String8 str8_from_type_kind(TypeKind kind);
 
 b32 type_equals(Type* a, Type* b);
 
-Scope *make_child_scope(Scope *parent_scope);
+Scope *make_child_scope(Arena *local_arena, Scope *parent_scope);
 
-void dump_declarations(SymbolTable* symbols);
-void collect_declarations(ASTNode *node, Scope *scope);
+void register_builtin_symbols(Scope *global_scope);
+void register_decls(DeclList decls, Scope *scope);
+void register_decl(Decl *decl, Scope *scope);
 
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope);
-Type *resolve_decl_func(ASTNode *node, Scope* scope);
-ResolvedExpr resolve_expr(Expr *expr, Scope* scope);
-i64 resolve_const_expr(Expr *expr, Scope* scope);
+Type *resolve_decl_func(Decl *decl, Scope *scope);
+ResolvedExpr resolve_expr(Expr *expr, Scope *scope);
+i64 resolve_const_expr(Expr *expr, Scope *scope);
 Symbol *resolve_name(String8 name, Scope *scope);
-void resolve_symbol(Symbol *symbol, Scope* scope);
+void resolve_stmt_block(StmtList block, Scope *scope);
+void resolve_stmt(Stmt *stmt, Scope *scope);
+void resolve_symbol(Symbol *symbol, Scope *scope);
+void resolve_symbols(SymbolTable *symbols, Scope *scope);
+void complete_type(Type *type);
 
 TypeSyntax *make_type_syntax(String8 name, Type *type, TypeSyntax *type_syntax, b32 is_defined);
 TypeSyntax *make_type_syntax_function(Arena *arena, ASTNode *node);
-Type *make_type_function(Arena *arena, Type **parameters, u64 parameter_count, Type *return_type);
-Type *make_type_builtin(Arena *arena, TypeKind kind);
+Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type);
+Type *make_type_array(Scope *scope, Type* elem_type, u64 size);
+Type *make_type_builtin(Scope *scope, TypeKind kind);
 
 u64 str8_hash(String8 key);
 b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol *value);
 Symbol *table_get(SymbolTable *table, String8 key);
+Symbol *scope_get_symbol(Scope *scope, String8 key);
 
 Type *type_intern(Arena *arena, TypeSet **set, Type *key);
+void symbol_print_decls(SymbolTable *symbols);

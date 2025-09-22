@@ -2,9 +2,10 @@
 #include "type_check.h"
 
 TypeKind type_kind_from_str8(String8 string) {
+    if (str8_compare(string, str8_lit("void"))) return TYPE_VOID;
     if (str8_compare(string, str8_lit("s32"))) return TYPE_S32;
 
-    fprintf(stderr, "No name defined for TypeKind %.*s\n", str8_varg(string));
+    fprintf(stderr, "No name defined for TypeKind: %.*s\n", str8_varg(string));
     return TYPE_VOID;
 }
 
@@ -17,11 +18,20 @@ String8 type_kind_name(TypeKind kind) {
     return (String8){0};
 }
 
-Symbol *make_symbol(Arena *arena, String8 name, ASTNode *node, b32 is_defined) {
+Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl) {
+    Symbol *result = push_array(arena, Symbol, 1);
+    result->name = decl->name;
+    result->decl = decl;
+    result->kind = kind;
+    return result;
+}
+
+Symbol *make_symbol_var(Arena *arena, String8 name, Type *type) {
     Symbol *result = push_array(arena, Symbol, 1);
     result->name = name;
-    result->node = node;
-    result->is_defined = is_defined;
+    result->type = type;
+    result->kind = SYMBOL_VAR;
+    result->state = SYMBOL_RESOLVED;
     return result;
 }
 
@@ -45,75 +55,82 @@ TypeSyntax *make_type_syntax_function(Arena *arena, ASTNode *node) {
     return type_node;
 }
 
-Scope *make_child_scope(Scope* parent_scope) {
+Scope *make_child_scope(Arena *local_arena, Scope* parent_scope) {
     Scope *child = push_array(parent_scope->arena, Scope, 1);
-    child->arena = parent_scope->arena;
+    child->arena = local_arena;
     child->parent = parent_scope;
     child->expected_return_type = parent_scope->expected_return_type;
-    child->symbols = parent_scope->symbols;
-    child->types = parent_scope->types;
     return child;
 }
 
-Type *make_type_function(Arena *arena, Type **parameters, u64 parameter_count, Type *return_type) {
+Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type) {
     Type* type = {0};
     type->kind = TYPE_FUNCTION;
     type->function.params = parameters;
     type->function.param_count = parameter_count;
     type->function.return_type = return_type;
-    return type_intern(arena, GLOBAL_TYPESET, type);
+    return type_intern(scope->arena, &scope->types, type);
 }
 
-Type *make_type_array(Arena *arena, Type* elem_type, u64 size) {
+Type *make_type_array(Scope *scope, Type* elem_type, u64 size) {
     Type *type = {0};
     type->kind = TYPE_ARRAY;
     type->array.base = elem_type;
     type->array.size = size;
-    return type_intern(arena, GLOBAL_TYPESET, type);
+    return type_intern(scope->arena, &scope->types, type);
 }
 
-Type *make_type_builtin(Arena *arena, TypeKind kind) {
-    Type *type = {0};
-    type->kind = kind;
+Type *make_type_builtin(Scope *scope, TypeKind kind) {
+    Type type = {0};
+    type.kind = kind;
     switch (kind) {
+        case TYPE_VOID:
+            break;
         case TYPE_S32:
-            type->size = 4;
-            type->align = 4;
+            type.size = 4;
+            type.align = 4;
             break;
         default:
-            fprintf(stderr, "Attempted to create invalid builtin type: %.*s", str8_varg(type_kind_name(kind)));
+            fprintf(stderr, "Attempted to create invalid builtin type: %.*s\n", str8_varg(type_kind_name(kind)));
             return (Type *){0};
     }
-    return type_intern(arena, GLOBAL_TYPESET, type);
+    return type_intern(scope->arena, &scope->types, &type);
 }
 
-ResolvedExpr make_resolved_s32(Arena *arena, i64 value) {
+Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
+    Type *type = push_array(arena, Type, 1);
+    type->kind = TYPE_INCOMPLETE;
+    type->symbol = symbol;
+    return type; 
+}
+
+ResolvedExpr make_resolved_s32(Scope *scope, i64 value) {
     ResolvedExpr result = {0};
     result.value = value;
     result.is_const = true;
-    result.type = make_type_builtin(arena, TYPE_S32);
+    result.type = make_type_builtin(scope, TYPE_S32);
     return result;
 }
 
 Symbol *resolve_name(String8 name, Scope *scope) {
-    Symbol *symbol = table_get(scope->symbols, name);
+    Symbol *symbol = scope_get_symbol(scope, name);
     if (!symbol) {
-        fprintf(stderr, "Unknown type: %.*s\n", str8_varg(name));
+        fprintf(stderr, "Failed while resolving name: %.*s\n", str8_varg(name));
         return (Symbol *){0};
     }
     resolve_symbol(symbol, scope);
     return symbol;
 }
 
-Type *resolve_decl_func(ASTNode *node, Scope *scope) {
-    debug_assert(node->kind == NODE_FUNCTION_DECL);
-    u64 param_count = node->function_decl.parameters->parameter_list.size;
+Type *resolve_decl_func(Decl *decl, Scope *scope) {
+    debug_assert(decl->kind == DECL_FUNC);
+    u64 param_count = decl->func.params.size;
     Type **params = push_array(scope->arena, Type*, param_count);
     for (u64 i = 0; i < param_count; i++) {
-        params[i] = resolve_type_syntax(node->function_decl.parameters->parameter_list.items[i]->parameter.type, scope);
+        params[i] = resolve_type_syntax(decl->func.params.items[i]->type, scope);
     }
-    Type *return_type = resolve_type_syntax(node->function_decl.return_type, scope);
-    Type *type_func = make_type_function(scope->arena, params, param_count, return_type);
+    Type *return_type = resolve_type_syntax(decl->func.return_type, scope);
+    Type *type_func = make_type_function(scope, params, param_count, return_type);
     return type_func;
 }
 
@@ -129,7 +146,8 @@ i64 resolve_const_expr(Expr *expr, Scope *scope) {
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
     switch (expr->kind) {
         case EXPR_INT: 
-            return make_resolved_s32(scope->arena, expr->int_value);
+            // TODO: Built in types should be allocated in a static arena, not a locally scoped one
+            return make_resolved_s32(scope, expr->int_value);
         default:
             // fprintf(stderr, "Failed at resolving expression kind: %.*s", str8_varg(node_kind_name(expr)));
             return (ResolvedExpr){0};
@@ -156,14 +174,14 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
         //     symbol->type = resolve_decl_const(symbol->node);
         //     break;
         case SYMBOL_FUNC:
-            symbol->type = resolve_decl_func(symbol->node, scope);
+            symbol->type = resolve_decl_func(symbol->decl, scope);
             break;
         default:
             debug_assert(0);
             break;
     }
     symbol->state = SYMBOL_RESOLVED;
-    table_insert(scope->arena, GLOBAL_ORDERED_SYMBOLS, symbol->name, symbol);
+    table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, symbol->name, symbol);
 }
 
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
@@ -184,14 +202,14 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
                 params[i] = resolve_type_syntax(type_syntax->function.params[i], scope);
             }
             Type *return_type = resolve_type_syntax(type_syntax->function.return_type, scope);
-            Type *type_func = make_type_function(scope->arena, params, param_count, return_type);
+            Type *type_func = make_type_function(scope, params, param_count, return_type);
             return type_func;
         }
         case TYPE_SYNTAX_ARRAY: {
             Type *elem_type = resolve_type_syntax(type_syntax->array.base, scope);
             u64 size = resolve_const_expr(type_syntax->array.size, scope);
             
-            Type *type_array = make_type_array(scope->arena, elem_type, size);
+            Type *type_array = make_type_array(scope, elem_type, size);
             return type_array;
         }
         case TYPE_SYNTAX_POINTER: {
@@ -203,64 +221,115 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
     }
 }
 
-void collect_declarations(ASTNode *decl, Scope *scope) {
+void register_decl(Decl *decl, Scope *scope) {
+    Symbol *symbol = table_get(scope->symbols, decl->name);
+    if (symbol) {
+        fprintf(stderr, "Redeclaration of symbol %*.s\n", str8_varg(decl->name));
+        return;
+    }
+    SymbolKind kind = SYMBOL_NONE;
     switch (decl->kind) {
-    case NODE_BLOCK: {
-        for (u64 i = 0; i < decl->block.size; i++) {
-            // This is the declarations pass, meaning that this NODE_BLOCK is the "program" block / global block,
-            // hence we dont create a child scope
-            collect_declarations(decl->block.items[i], scope);
-        }
-        break;
+        case DECL_VAR: 
+            kind = SYMBOL_VAR;
+            break;
+        case DECL_FUNC:
+            kind = SYMBOL_FUNC;
+            break;
+        default:
+            debug_assert(0);
+            break;
     }
-    case NODE_FUNCTION_DECL: {
-        Symbol *symbol = table_get(scope->symbols, decl->function_decl.name);
-        if (symbol) {
-            if (symbol->is_defined) {
-                fprintf(stderr, "Redeclaration of function %*.s\n", str8_varg(decl->function_decl.name));
-            } 
-        } else {
-            Symbol *symbol_func = make_symbol(scope->arena, decl->function_decl.name, decl, true);
-            table_insert(scope->arena, &scope->symbols, decl->function_decl.name, symbol_func);
-        }
-        break;
+
+    symbol = make_symbol(scope->arena, kind, decl);
+    if (decl->kind == DECL_STRUCT || DECL_UNION) {
+        symbol->state = SYMBOL_RESOLVED;
+        symbol->type = make_type_incomplete(scope->arena, symbol);
     }
-    case NODE_VAR_DECL: {
-        Symbol *symbol = table_get(scope->symbols, decl->var_decl.name);
-        if (symbol) {
-            if (symbol->is_defined) {
-                fprintf(stderr, "Redeclaration of variable %*.s\n", str8_varg(decl->function_decl.name));
-            }
-        } else {
-            Symbol *symbol_var = make_symbol(scope->arena, decl->var_decl.name, decl, true);
-            table_insert(scope->arena, &scope->symbols, decl->var_decl.name, symbol_var);
-        }
-        break;
-    }
-    // case NODE_STRUCT_DECL: {
-    //     Symbol *symbol = table_get(scope->symbols, decl->var_decl.name);
-    //     if (symbol) {
-    //         if (symbol->is_defined) {
-    //             fprintf(stderr, "Redeclaration of struct %*.s\n", str8_varg(decl->function_decl.name));
-    //         }
-    //     } else {
-    //         Symbol symbol = make_symbol(decl->struct_decl.name, decl, true);
-    //         table_insert(scope->arena, &scope->symbols, decl->struct_decl.name, symbol);
-    //         symbol.state = SYMBOL_RESOLVED;
-    //         Type *type = push_array(scope->arena, Type, 1);
-    //         type->kind = TYPE_INCOMPLETE;
-    //         symbol.type = type;
-    //     }
-    //     break;
-    // }
-    case NODE_UNION_DECL: {
-        // This case should do the exact same thing as struct decl case.
-        break;
-    }
-    default:
-        break;
+    table_insert(scope->arena, &scope->symbols, symbol->name, symbol);
+}
+
+static Symbol builtin_symbols[] = {
+    { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED },
+    { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED },
+};
+
+void register_builtin_symbols(Scope *global_scope) {
+    for (u64 i = 0; i < array_count(builtin_symbols); i++) {
+        Symbol symbol = builtin_symbols[i];
+        TypeKind type_kind = type_kind_from_str8(symbol.name);
+        // This also interns the inbuilt types
+        symbol.type = make_type_builtin(global_scope, type_kind);
+        table_insert(global_scope->arena, &global_scope->symbols, symbol.name, &symbol);
     }
 }
+
+void register_decls(DeclList decls, Scope *scope) {
+    for (u64 i = 0; i < decls.size; i++) {
+        register_decl(decls.items[i], scope);
+    }
+}
+
+void complete_type(Type *type) {
+
+}
+
+void resolve_func_body(Symbol *symbol, Scope *local_scope) {
+    debug_assert(symbol->state == SYMBOL_RESOLVED);
+    Decl *decl = symbol->decl;
+    debug_assert(decl->kind == DECL_FUNC);
+
+    for (u64 i = 0; i < decl->func.params.size; i++) {
+        FuncParam *param = decl->func.params.items[i];
+        Type* param_type = resolve_type_syntax(param->type, local_scope);
+        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type);
+        table_insert(local_scope->arena, &local_scope->symbols, var->name, var);
+    }
+    // NOTE: Overwrite expected return type, to match return type of the function we have entered
+    local_scope->expected_return_type = resolve_type_syntax(decl->func.return_type, local_scope);
+    resolve_stmt_block(decl->func.body, local_scope);
+}
+
+void resolve_stmt(Stmt *stmt, Scope *scope) {
+    switch (stmt->kind) {
+        case STMT_RETURN:
+            
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
+
+void resolve_stmt_block(StmtList block, Scope *scope) {
+    // NOTE: I dont bother to make a temp arena for any generic block, 
+    // i just use the temp arena space that the function scope already holds.
+    Scope *block_scope = make_child_scope(scope->arena, scope);
+    for (u64 i = 0; i < block.size; i++) {
+        resolve_stmt(block.items[i], block_scope);
+    }
+}
+
+void resolve_symbols(SymbolTable *symbols, Scope *scope) {
+    if (symbols) {
+        Symbol *symbol = symbols->value;
+        resolve_symbol(symbol, scope);
+        if (symbol->kind == SYMBOL_TYPE) {
+            complete_type(symbol->type);
+        }
+        if (symbol->kind == SYMBOL_FUNC) {
+            TempArena temp = temp_begin(scope->arena);
+            Scope *func_scope = make_child_scope(temp.arena, scope);
+            resolve_func_body(symbol, func_scope);
+            temp_end(temp);
+        }
+        for (u64 i = 0; i < array_count(symbols->child); i++){
+            if (symbols->child[i]) {
+                resolve_symbols(symbols->child[i], scope);
+            }
+        }
+    }
+}
+
 
 // https://nullprogram.com/blog/2023/09/30/ 
 u64 str8_hash(String8 key) {
@@ -287,6 +356,14 @@ b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol *value) 
     (*table)->key = key;
     (*table)->value = value_storage;
     return true;
+}
+
+Symbol *scope_get_symbol(Scope *scope, String8 key) {
+    for (; scope; scope = scope->parent) {
+        Symbol *symbol = table_get(scope->symbols, key);
+        if (symbol) return symbol;
+    }
+    return (Symbol *){0};
 }
 
 Symbol *table_get(SymbolTable *table, String8 key) {
@@ -344,20 +421,21 @@ Type *type_intern(Arena *arena, TypeSet **set, Type *key) {
         set = &(*set)->child[h>>62];
     }
 
-    *set = push_array(arena, TypeSet, 1);
-    (*set)->key = key; 
+    Type *key_storage = push_array(arena, Type, 1);
+    *key_storage = *key;
 
-    return (*set)->key;
+    *set = push_array(arena, TypeSet, 1);
+    (*set)->key = key_storage; 
+
+    return key_storage;
 }
 
-void dump_declarations(SymbolTable *symbols) {
+void symbol_print_decls(SymbolTable *symbols) {
     if (symbols) {
-        if (symbols->value->is_defined) {
-            printf("Symbol: %.*s\n", str8_varg(symbols->value->name));
-        }
-        for (i32 i = 0; i < 4; i++) {
+        printf("Symbol: %.*s\n", str8_varg(symbols->value->name));
+        for (u64 i = 0; i < array_count(symbols->child); i++) {
             if (symbols->child[i]) {
-                dump_declarations(symbols->child[i]);
+                symbol_print_decls(symbols->child[i]);
             }
         }
     }

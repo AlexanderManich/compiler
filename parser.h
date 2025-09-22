@@ -84,6 +84,8 @@ struct ParamList {
 typedef enum DeclKind {
     DECL_VAR,
     DECL_FUNC,
+    DECL_STRUCT,
+    DECL_UNION,
 } DeclKind;
 
 typedef struct Decl Decl;
@@ -213,7 +215,11 @@ void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
 // Parse tree printing...
-void dump_ast(ASTNode *node, i32 depth);
+void ast_print(DeclList decls, i32 depth);
+void ast_print_decl(Decl *decl, i32 depth);
+void ast_print_expr(Expr *expr, i32 depth);
+void ast_print_stmt(Stmt *stmt, i32 depth);
+void ast_print_type_syntax(TypeSyntax *type_syntax);
 
 // String/Number conversions
 i32 i32_from_str8(String8 str);

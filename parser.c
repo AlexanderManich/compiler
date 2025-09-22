@@ -22,63 +22,90 @@ i32 get_precedence_from_kind(TokenKind kind) {
     return token_literals[kind].precedence;
 }
 
-// void dump_ast(ASTNode *node, i32 depth) {
-//     if (!node) return;
-//     printf("%*s", depth, "");
+void ast_print_stmt(Stmt *stmt, i32 depth) {
+    printf("%*s", depth, "");
+    switch (stmt->kind) {
+        case STMT_RETURN: 
+            printf("return ");
+            ast_print_expr(stmt->expr, depth + 2);
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
 
-//     switch (node->kind) {
-//         case NODE_FUNCTION_DECL:
-//             printf("function declaration (%.*s)\n", str8_varg(node->function_decl.name));
-//             if (node->function_decl.parameters) {
-//                 for (u32 i = 0; i < node->function_decl.parameters->parameter_list.size; i++) {
-//                     dump_ast(node->function_decl.parameters->parameter_list.items[i], depth + 1);
-//                 }
-//             }
-//             printf("%*s", depth + 1, "");
-//             printf("return type (%.*s)\n", str8_varg(node->function_decl.return_type->name));
-//             dump_ast(node->function_decl.body, depth + 1);
-//             break;
-//         case NODE_FUNCTION_CALL:
-//             printf("function call (%.*s)\n", str8_varg(node->function_call.name));
-//             if (node->function_call.parameters) {
-//                 for (u32 i = 0; i < node->function_call.parameters->parameter_list.size; i++) {
-//                     dump_ast(node->function_decl.parameters->parameter_list.items[i], depth + 1);
-//                 }
-//             }
-//             break;
-//         case NODE_DECL_PARAMETER:
-//             printf("parameter (%.*s: %.*s)\n", str8_varg(node->parameter.name), str8_varg(node->parameter.type->name));
-//             break;
-//         case NODE_VAR_DECL:
-//             printf("variable declaration (%.*s: %.*s)\n", str8_varg(node->var_decl.name), str8_varg(node->var_decl.type->name));
-//             if (node->var_decl.expr) dump_ast(node->var_decl.expr, depth + 1);
-//             break;
-//         case NODE_INT:
-//             printf("const integer (%ld)\n", node->int_value);
-//             break;
-//         case NODE_BINARY_OP:
-//             printf("binary operator (%.*s)\n", str8_varg(node->binary_op.op));
-//             dump_ast(node->binary_op.left, depth + 1);
-//             dump_ast(node->binary_op.right, depth + 1);
-//             break;
-//         case NODE_RETURN:
-//             printf("return\n");
-//             dump_ast(node->return_val.expr, depth + 1);
-//             break;
-//         case NODE_IDENT:
-//             printf("identifier (%.*s)\n", str8_varg(node->expr->name));
-//             break;
-//         case NODE_BLOCK:
-//             printf("block\n");
-//             for (u32 i = 0; i < node->block.size; i++) {
-//                 dump_ast(node->block.items[i], depth + 1);
-//             }
-//             break;
-//         default:
-//             printf("%*s", depth, "");
-//             printf("unknown node kind (%d)\n", node->kind);
-//     }
-// }
+void ast_print_decl_param(FuncParam *param) {
+    printf("decl param (%.*s: %.*s)\n", str8_varg(param->name), str8_varg(param->type->name));
+}
+
+void ast_print_type_syntax(TypeSyntax *type_syntax) {
+    switch (type_syntax->kind) {
+        case TYPE_SYNTAX_NAME:
+            printf("%.*s\n", str8_varg(type_syntax->name));
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
+
+void ast_print_expr(Expr *expr, i32 depth) {
+    debug_assert(expr);
+    switch (expr->kind) {
+        case EXPR_NAME:
+            printf("(%.*s)\n", str8_varg(expr->name));
+            break;
+        case EXPR_INT:
+            printf("integer (%ld)\n", expr->int_value);
+            break;
+        case EXPR_CALL:
+            printf("call (%.*s)\n", str8_varg(expr->call.name));
+            for (u64 i = 0; i < expr->call.params.size; i++) {
+                printf("%*s", depth, "");
+                printf("call param ");
+                ast_print_expr(expr->call.params.items[i], depth + 2);
+            }
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
+
+void ast_print_decl(Decl *decl, i32 depth) {
+    debug_assert(decl);
+    switch (decl->kind) {
+        case DECL_VAR: 
+            ast_print_expr(decl->var.expr, depth + 2);
+            ast_print_type_syntax(decl->var.type);
+            break;
+        case DECL_FUNC:
+            printf("decl func (%.*s)", str8_varg(decl->name));
+            printf(" -> ");
+            ast_print_type_syntax(decl->func.return_type);
+            for (u64 i = 0; i < decl->func.params.size; i++) {
+                printf("%*s", depth, "");
+                ast_print_decl_param(decl->func.params.items[i]);
+            }
+            for (u64 i = 0; i < decl->func.body.size; i++ ) {
+                ast_print_stmt(decl->func.body.items[i], depth + 2);
+            }
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
+
+void ast_print(DeclList decls, i32 depth) {
+    if (!decls.size) return;
+    printf("%*s", depth, "");
+    
+    for (u64 i = 0; i < decls.size; i++) {
+        ast_print_decl(decls.items[i], depth + 2);
+    }
+}
 
 String8 node_kind_name(ASTNode *node) {
     switch (node->kind) {
