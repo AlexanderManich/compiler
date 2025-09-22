@@ -23,6 +23,6 @@ extern i32 ir_count;
 
 void emit(Op op, i32 dest, i32 src, i32 src2, i32 imm);
 
-i32 ir_gen_expr(ASTNode *node);
-void ir_gen_statement(ASTNode *node);
-void ir_gen_function(ASTNode *func_node);
+i32 ir_gen_expr(Expr *expr);
+void ir_gen_statement(Stmt *stmt);
+void ir_gen_function(Decl *func_decl);

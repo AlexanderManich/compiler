@@ -1,45 +1,55 @@
 #pragma once 
+#include "parser.h"
 
 typedef enum TypeKind {
     TYPE_VOID,
+    TYPE_INCOMPLETE,
+    TYPE_COMPLETING,
     TYPE_S8,
     TYPE_S16,
     TYPE_S32,
     TYPE_S64,
-    TYPE_FUNCTION
+    TYPE_FUNCTION,
+    TYPE_ARRAY,
+    TYPE_PTR,
 } TypeKind;
 
+typedef struct Symbol Symbol;
 typedef struct Type Type;
 struct Type {
     TypeKind kind;
+    u64 size;
+    u64 align;
 
+    Symbol *symbol;
     union {
         struct { Type* return_type; Type** params; u64 param_count; } function;
+        struct { Type* base; u64 size; } array;
+        struct { Type* base; } ptr;
     };
 };
 
-typedef enum TypeNodeKind {
-    TYPE_NODE_IDENTIFIER,
-    TYPE_NODE_FUNCTION,
-    // TYPE_NODE_POINTER,
-    // TYPE_NODE_ARRAY,
-} TypeNodeKind;
+typedef enum SymbolKind {
+    SYMBOL_NONE,
+    SYMBOL_VAR,
+    SYMBOL_CONST,
+    SYMBOL_FUNC,
+    SYMBOL_TYPE,
+    SYMBOL_ENUM_CONST,
+} SymbolKind;
 
-typedef struct TypeNode TypeNode;
-struct TypeNode {
-    TypeNodeKind kind;
+typedef enum SymbolState {
+    SYMBOL_UNRESOLVED,
+    SYMBOL_RESOLVING,
+    SYMBOL_RESOLVED,
+} SymbolState;
 
-    union {
-        struct { String8 name;} identifier;
-        struct { TypeNode *return_type; TypeNode **params; u64 param_count; } function;
-    };
-};
-
-typedef struct Symbol Symbol;
 struct Symbol {
-    String8 identifier;
+    String8 name;
+    SymbolKind kind;
+    SymbolState state;
     Type *type;
-    TypeNode *type_node;
+    ASTNode *node; 
     b32 is_defined;
 };
 
@@ -48,14 +58,17 @@ typedef struct SymbolTable SymbolTable;
 struct SymbolTable {
     SymbolTable *child[4];
     String8 key;
-    Symbol value;
+    Symbol *value;
 };
 
 typedef struct TypeSet TypeSet;
 struct TypeSet {
     TypeSet *child[4];
-    Type* key;
+    Type *key;
 };
+
+static TypeSet **GLOBAL_TYPESET = {0};
+static SymbolTable **GLOBAL_ORDERED_SYMBOLS = {0};
 
 typedef struct Scope Scope;
 struct Scope {
@@ -66,15 +79,20 @@ struct Scope {
     Arena *arena;
 };
 
+typedef struct ResolvedExpr {
+    Type *type;
+    i64 value;
+    b32 is_const;
+    b32 is_lvalue;
+} ResolvedExpr;
+
 typedef struct ASTNode ASTNode;
+
+// NOTE: Should i just define primitive types like this?
+// static Type *type_int = &(Type){.kind = TYPE_S32, .size= 4, .align = 4};
 
 TypeKind type_kind_from_str8(String8 string);
 String8 str8_from_type_kind(TypeKind kind);
-
-Type simple_type(TypeKind kind);
-Type *make_simple_type(Arena *arena, TypeSet *type_set, TypeKind kind);
-Type *make_function_type(Arena *arena, TypeSet *type_set, ASTNode *node);
-Type *make_expr_type(Arena *arena, TypeSet *type_set, ASTNode *expr);
 
 b32 type_equals(Type* a, Type* b);
 
@@ -82,13 +100,21 @@ Scope *make_child_scope(Scope *parent_scope);
 
 void dump_declarations(SymbolTable* symbols);
 void collect_declarations(ASTNode *node, Scope *scope);
-void type_check_program(ASTNode *root_node, Scope* global_scope);
-void type_check_node(ASTNode *node, Scope *scope);
-Type *type_resolve(String8 type_name, Scope *scope);
-void resolve_symbol_types(SymbolTable *symbols, Scope *scope);
+
+Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope);
+Type *resolve_decl_func(ASTNode *node, Scope* scope);
+ResolvedExpr resolve_expr(Expr *expr, Scope* scope);
+i64 resolve_const_expr(Expr *expr, Scope* scope);
+Symbol *resolve_name(String8 name, Scope *scope);
+void resolve_symbol(Symbol *symbol, Scope* scope);
+
+TypeSyntax *make_type_syntax(String8 name, Type *type, TypeSyntax *type_syntax, b32 is_defined);
+TypeSyntax *make_type_syntax_function(Arena *arena, ASTNode *node);
+Type *make_type_function(Arena *arena, Type **parameters, u64 parameter_count, Type *return_type);
+Type *make_type_builtin(Arena *arena, TypeKind kind);
 
 u64 str8_hash(String8 key);
-b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol value);
+b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol *value);
 Symbol *table_get(SymbolTable *table, String8 key);
 
 Type *type_intern(Arena *arena, TypeSet **set, Type *key);

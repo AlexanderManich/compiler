@@ -32,10 +32,10 @@ String8 token_kind_name(TokenKind kind) {
     switch (kind) {
         case TOKEN_END:
             return str8_lit("end of input");
-        case TOKEN_IDENT:
-            return str8_lit("identifier");
-        case TOKEN_NUMBER:
-            return str8_lit("number");
+        case TOKEN_NAME:
+            return str8_lit("name");
+        case TOKEN_INT:
+            return str8_lit("integer");
         case TOKEN_STRING:
             return str8_lit("string");
         case TOKEN_PLUS:
@@ -178,7 +178,7 @@ Token *lexer_make_ident_or_keyword(Lexer *lexer) {
         eat_char(lexer);
         result->text.size += 1;
     }
-    result->kind = TOKEN_IDENT;
+    result->kind = TOKEN_NAME;
     
     // Keywords
     TokenKind keyword_kind = is_keyword(result);
@@ -216,9 +216,9 @@ Token *lexer_make_string(Lexer *lexer) {
         return result;
 }
 
-Token *lexer_make_number(Lexer *lexer) {
+Token *lexer_make_integer(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
-    result->kind = TOKEN_NUMBER;
+    result->kind = TOKEN_INT;
     result->text.str = &lexer->input.str[lexer->input_cursor];
     while (lexer->input_cursor < lexer->input.size && is_number_start(lexer->input.str[lexer->input_cursor])) {
         eat_char(lexer);
@@ -324,7 +324,7 @@ inline Token *make_new_token(Lexer *lexer) {
 
     // Numbers 
     if (is_number_start(lexer->input.str[lexer->input_cursor])) {
-        return lexer_make_number(lexer);
+        return lexer_make_integer(lexer);
     }
 
     eat_char(lexer);

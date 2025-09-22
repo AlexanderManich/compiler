@@ -6,15 +6,13 @@
 #include <stdarg.h>
 #include "lexer.h"
 #include "base/base_arena.h"
-#include "type_check.h"
 
 typedef struct Parser Parser;
 struct Parser {
     Arena *arena;
-    TypeSet *types;
 };
 
-typedef enum NodeKind {
+typedef enum ASTNodeKind {
     NODE_IDENT,
     NODE_DECL_PARAMETER,
     NODE_DECL_PARAMETER_LIST,
@@ -22,32 +20,144 @@ typedef enum NodeKind {
     NODE_CALL_PARAMETER_LIST,
     NODE_VAR_DECL,
     NODE_VAR_ASSIGN,
-    NODE_CONST_INT,
+    NODE_INT,
     NODE_BINARY_OP,
     NODE_RETURN,
     NODE_FUNCTION_DECL,
     NODE_FUNCTION_CALL,
     NODE_IF,
-    NODE_BLOCK
+    NODE_BLOCK,
+    NODE_STRUCT_DECL,
+    NODE_UNION_DECL,
 } ASTNodeKind;
+
+typedef struct Expr Expr;
+
+typedef struct ExprList ExprList;
+struct ExprList {
+    Expr **items;
+    u64 size;
+    u64 capacity;
+};
+
+typedef enum ExprKind {
+    EXPR_NAME,
+    EXPR_INT,
+    EXPR_CALL,
+    EXPR_BINARY,
+} ExprKind;
+
+struct Expr {
+    ExprKind kind;
+    union {
+        String8 name;
+        i64 int_value;
+        struct { Expr *left; Expr *right; String8 op; } binary;
+        struct { Expr *expr; String8 op; } unary;
+        struct { String8 name; ExprList params; } call;
+    };
+};
+
+typedef struct TypeSyntax TypeSyntax;
+typedef struct StmtList StmtList;
+typedef struct Stmt Stmt;
+
+struct StmtList {
+    Stmt **items;
+    u64 size;
+    u64 capacity;
+};
+
+typedef struct FuncParam FuncParam;
+struct FuncParam {
+    String8 name;
+    TypeSyntax *type;
+};
+
+typedef struct ParamList ParamList;
+struct ParamList {
+    FuncParam **items;
+    u64 size;
+    u64 capacity;
+};
+
+typedef enum DeclKind {
+    DECL_VAR,
+    DECL_FUNC,
+} DeclKind;
+
+typedef struct Decl Decl;
+struct Decl {
+    DeclKind kind;
+    String8 name;
+    union {
+        struct { TypeSyntax *type; Expr *expr; } var;
+        struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
+
+    };
+};
+
+typedef struct DeclList DeclList;
+struct DeclList {
+    Decl **items;
+    u64 size;
+    u64 capacity;
+};
+typedef enum StmtKind {
+    STMT_NONE,
+    STMT_BLOCK,
+    STMT_RETURN,
+    STMT_IF,
+    STMT_ASSIGN,
+    STMT_EXPR,
+    STMT_DECL,
+} StmtKind;
+
+struct Stmt {
+    StmtKind kind;
+    union {
+        Expr* expr;
+        Decl *decl;
+        StmtList block;
+        struct  { String8 name; Expr *expr; } assign_stmt;
+        struct { Expr *cond; StmtList if_body; StmtList else_body; } if_stmt;
+    };
+};
+
+
 
 typedef struct ASTNode ASTNode;
 struct ASTNode {
     ASTNodeKind kind;
 
     union {
-        struct { i64 value;} const_int;
-        struct { String8 name; } indentifier;
-        struct { ASTNode *left; ASTNode *right; String8 op;} binary_op;
+        Expr *expr;
         struct { ASTNode *expr;} return_val;
-        struct { String8 name; TypeNode *type; } parameter;
-        struct { ASTNode **items; u64 size; u64 capacity;} parameter_list;
-        struct { String8 name; ASTNode* parameters; ASTNode *body; TypeNode *return_type; } function_decl;
-        struct { String8 name; ASTNode* parameters; } function_call;
+        struct { String8 name; TypeSyntax *type; } parameter;
+        struct { ASTNode **items; u64 size; u64 capacity; } parameter_list;
+        struct { String8 name; ASTNode* parameters; ASTNode *body; TypeSyntax *return_type; } function_decl;
         struct { ASTNode **items; u64 size; u64 capacity;} block;
         struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
         struct { String8 name; ASTNode *expr;} var_assign;
-        struct { String8 name; TypeNode *type; ASTNode *expr;} var_decl;
+        struct { String8 name; TypeSyntax *type; ASTNode *expr;} var_decl;
+    };
+};
+
+typedef enum TypeSyntaxKind {
+    TYPE_SYNTAX_NAME,
+    TYPE_SYNTAX_FUNCTION, 
+    TYPE_SYNTAX_POINTER,
+    TYPE_SYNTAX_ARRAY,
+} TypeSyntaxKind;
+
+struct TypeSyntax {
+    TypeSyntaxKind kind;
+
+    union {
+        String8 name;
+        struct { TypeSyntax *return_type; TypeSyntax **params; u64 param_count; } function;
+        struct { TypeSyntax *base; Expr *size; } array;
+        struct { TypeSyntax *base; } ptr;
     };
 };
 
@@ -59,44 +169,45 @@ b32 is_binary_operator(Token *token);
 i32 get_precedence_from_kind(TokenKind kind);
 
 // Make ASTNodes
-ASTNode *make_number(Arena *arena, Token *token); 
-ASTNode *make_binary(Arena *arena, ASTNode *left, String8 operator, ASTNode *right);
-ASTNode *make_return(Arena *arena, ASTNode *expr);
-ASTNode *make_decl_parameter(Arena* arena, String8 name, TypeNode *type);
-ASTNode *make_function_decl(Arena *arena, String8 name, ASTNode* parameters, ASTNode *body, TypeNode *return_type);
-ASTNode *make_if(Arena *arena, ASTNode *cond, ASTNode *if_body, ASTNode *else_body);
-ASTNode *make_indentifier(Arena *arena, Token *token);
-ASTNode *make_var_decl(Arena *arena, String8 name, TypeNode* type, ASTNode *expr);
-ASTNode *make_var_assign(Arena *arena, String8 name, ASTNode *expr);
+Expr *make_s32(Arena *arena, Token *token); 
+Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right);
+Stmt *make_stmt_return(Arena *arena, Expr *expr);
+FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
+Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
+Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
+Expr *make_expr_name(Arena *arena, Token *token);
+Expr *make_expr_call(Arena *arena, String8 name, ExprList params);
+Decl *make_var_decl(Arena *arena, String8 name, TypeSyntax* type, Expr *expr);
+Decl *make_var_assign(Arena *arena, String8 name, Expr *expr);
 
-TypeNode *make_type_node_identifier(Arena *arena, String8 name);
+TypeSyntax *make_type_syntax_name(Arena *arena, String8 name);
 
-ASTNode *parse_program(Lexer *lexer);
+DeclList parse_program(Lexer *lexer);
 
 // Expression parsing
-ASTNode *parse_leaf(Lexer *lexer);
-ASTNode *parse_expression(Lexer *lexer, i32 min_precedence);
-ASTNode *parse_increasing_precedence(Lexer *lexer, ASTNode *left, i32 min_precedence);
-ASTNode *parse_function_call(Lexer *lexer, String8 name);
-ASTNode *parse_call_parameter(Lexer *lexer);
-ASTNode *parse_call_parameters(Lexer *lexer);
+Expr *parse_leaf(Lexer *lexer);
+Expr *parse_expr(Lexer *lexer, i32 min_precedence);
+Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence);
+Expr *parse_expr_call(Lexer *lexer, String8 name);
+ExprList parse_call_params(Lexer *lexer);
 
 // Statement parsing
-ASTNode *parse_statement(Lexer *lexer);
-ASTNode *parse_statements(Lexer *lexer);
+Stmt *parse_stmt(Lexer *lexer);
+StmtList parse_stmts(Lexer *lexer);
 
-ASTNode* parse_function_decl(Lexer *lexer, String8 name);
-ASTNode* parse_decl_parameter(Lexer *lexer);
-ASTNode* parse_decl_parameters(Lexer *lexer);
+Decl *parse_decl_func(Lexer *lexer, String8 name);
+FuncParam *parse_decl_param(Lexer *lexer);
+ParamList parse_decl_params(Lexer *lexer);
 
-ASTNode* parse_var_decl(Lexer *lexer, String8 name);
-ASTNode* parse_var_assign(Lexer *lexer, String8 name);
+Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
+Decl *parse_decl_var(Lexer *lexer, String8 name);
+Stmt *parse_stmt_assign(Lexer *lexer, String8 name);
 
-TypeNode* parse_base_type(Lexer *lexer);
+TypeSyntax *parse_type_base(Lexer *lexer);
 
 // Keywords parsing
-ASTNode *parse_if(Lexer *lexer);
-ASTNode *parse_return(Lexer *lexer);
+Stmt *parse_stmt_if(Lexer *lexer);
+Stmt *parse_stmt_return(Lexer *lexer);
 
 void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);

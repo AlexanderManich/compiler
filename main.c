@@ -71,7 +71,6 @@ int main(int argc, char **argv) {
 
     Parser parser = {0};
     parser.arena = &parser_arena;
-    parser.types = &type_set;
 
     Lexer lexer = {0};
     lexer.input = input;
@@ -82,22 +81,20 @@ int main(int argc, char **argv) {
     //     eat_token(&lexer);
     // }
 
-    ASTNode *program_ast = parse_program(&lexer);
+    DeclList program_ast = parse_program(&lexer);
 
     Scope global_scope = {0};
     global_scope.arena = &parser_arena;
     global_scope.types = &type_set;
 
     // dump_ast(program_ast, 0);
-    collect_declarations(program_ast, &global_scope);
-    resolve_symbol_types(global_scope.symbols, &global_scope);
-    type_check_program(program_ast, &global_scope);
+    // collect_declarations(program_ast, &global_scope);
 
     // if (!output_file_path.str) {
     //     output_file_path = str8_lit("main");
     // }
-    codegen_ast(&global_arena, program_ast, output_file_path);
-    asm_compile_and_link(&global_arena, output_file_path);
+    // codegen_ast(&global_arena, program_ast, output_file_path);
+    // asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
@@ -106,5 +103,5 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "type_check.c"
-#include "ir.c"
-#include "code_gen.c"
+// #include "ir.c"
+// #include "code_gen.c"

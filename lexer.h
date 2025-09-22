@@ -32,8 +32,8 @@ typedef enum TokenKind {
 
     // Uhh misc idk
     TOKEN_END,
-    TOKEN_IDENT,
-    TOKEN_NUMBER,
+    TOKEN_NAME,
+    TOKEN_INT,
     TOKEN_STRING,
 
     //Keywords
