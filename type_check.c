@@ -189,7 +189,7 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
         case TYPE_SYNTAX_NAME: {
             String8 name = type_syntax->name;
             Symbol *symbol = resolve_name(name, scope);
-            if (symbol->kind != SYMBOL_TYPE) {
+            if (!symbol || symbol->kind != SYMBOL_TYPE) {
                 fprintf(stderr, "%.*s doesn't denote a type\n", str8_varg(name));
                 return (Type *){0};
             }
