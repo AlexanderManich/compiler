@@ -50,6 +50,7 @@ struct Symbol {
     SymbolState state;
     Type *type;
     Decl *decl; 
+    u64 value;
 };
 
 // https://nullprogram.com/blog/2023/09/30/ 
@@ -71,7 +72,6 @@ static SymbolTable *GLOBAL_ORDERED_SYMBOLS = {0};
 typedef struct Scope Scope;
 struct Scope {
     SymbolTable *symbols;
-    TypeSet *types;
     Type *expected_return_type;
     Scope *parent;
     Arena *arena;
@@ -84,8 +84,7 @@ typedef struct ResolvedExpr {
     b32 is_lvalue;
 } ResolvedExpr;
 
-typedef struct ASTNode ASTNode;
-
+static TypeSet *GLOBAL_TYPE_TABLE = {0};
 // NOTE: Should i just define primitive types like this?
 // static Type *type_int = &(Type){.kind = TYPE_S32, .size= 4, .align = 4};
 
@@ -112,10 +111,9 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope);
 void complete_type(Type *type);
 
 TypeSyntax *make_type_syntax(String8 name, Type *type, TypeSyntax *type_syntax, b32 is_defined);
-TypeSyntax *make_type_syntax_function(Arena *arena, ASTNode *node);
 Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type);
 Type *make_type_array(Scope *scope, Type* elem_type, u64 size);
-Type *make_type_builtin(Scope *scope, TypeKind kind);
+Type *make_type_builtin(TypeKind kind);
 
 u64 str8_hash(String8 key);
 b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol *value);

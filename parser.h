@@ -54,7 +54,7 @@ struct Expr {
         i64 int_value;
         struct { Expr *left; Expr *right; String8 op; } binary;
         struct { Expr *expr; String8 op; } unary;
-        struct { String8 name; ExprList params; } call;
+        struct { Expr *expr; ExprList params; } call;
     };
 };
 
@@ -178,7 +178,7 @@ FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, Token *token);
-Expr *make_expr_call(Arena *arena, String8 name, ExprList params);
+Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
 Decl *make_var_decl(Arena *arena, String8 name, TypeSyntax* type, Expr *expr);
 Decl *make_var_assign(Arena *arena, String8 name, Expr *expr);
 
@@ -190,7 +190,7 @@ DeclList parse_program(Lexer *lexer);
 Expr *parse_leaf(Lexer *lexer);
 Expr *parse_expr(Lexer *lexer, i32 min_precedence);
 Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence);
-Expr *parse_expr_call(Lexer *lexer, String8 name);
+Expr *parse_expr_call(Lexer *lexer, Expr *expr);
 ExprList parse_call_params(Lexer *lexer);
 
 // Statement parsing

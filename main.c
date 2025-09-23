@@ -32,11 +32,13 @@ String8 read_entire_file(Arena *arena, String8 file_path) {
 static u8 global_arena_buffer[GLOBAL_ARENA_SIZE];
 #define PARSER_ARENA_SIZE MB(1)
 static u8 parser_arena_buffer[PARSER_ARENA_SIZE];
+#define TYPE_ARENA_SIZE MB(1)
+static u8 type_arena_buffer[TYPE_ARENA_SIZE];
+static Arena GLOBAL_TYPE_ARENA;
 
 int main(int argc, char **argv) {
-    u64 global_arena_size = MB(1);
     Arena global_arena = {0};
-    arena_init(&global_arena, global_arena_buffer, global_arena_size);
+    arena_init(&global_arena, global_arena_buffer, GLOBAL_ARENA_SIZE);
     
     String8 program = str8_shift_args(&argv, &argc);
     printf("Program: %s\n", program.str);
@@ -68,7 +70,7 @@ int main(int argc, char **argv) {
 
     Arena parser_arena = {0};
     arena_init(&parser_arena, parser_arena_buffer, PARSER_ARENA_SIZE);
-
+    arena_init(&GLOBAL_TYPE_ARENA, type_arena_buffer, TYPE_ARENA_SIZE);
     
     Parser parser = {0};
     parser.arena = &parser_arena;
@@ -84,16 +86,14 @@ int main(int argc, char **argv) {
     
     DeclList program_ast = parse_program(&lexer);
     
-    TypeSet type_set = {0};
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
-    global_scope.types = &type_set;
 
     // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
-    // symbol_print_decls(global_scope.symbols);
+    symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
 
     // if (!output_file_path.str) {

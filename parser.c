@@ -60,7 +60,7 @@ void ast_print_expr(Expr *expr, i32 depth) {
             printf("integer (%ld)\n", expr->int_value);
             break;
         case EXPR_CALL:
-            printf("call (%.*s)\n", str8_varg(expr->call.name));
+            printf("call (%.*s)\n", str8_varg(expr->call.expr->name));
             for (u64 i = 0; i < expr->call.params.size; i++) {
                 printf("%*s", depth, "");
                 printf("call param ");
@@ -176,10 +176,10 @@ Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body
     return result;
 }
 
-Expr *make_expr_call(Arena *arena, String8 name, ExprList params) {
+Expr *make_expr_call(Arena *arena, Expr *expr, ExprList params) {
     Expr *result = push_array(arena, Expr, 1);
     result->kind = EXPR_CALL;
-    result->call.name = name;
+    result->call.expr = expr;
     result->call.params = params; 
     return result;
 }
@@ -232,10 +232,10 @@ Expr *parse_leaf(Lexer *lexer) {
     Expr *result = push_array(lexer->parser->arena, Expr, 1);
     switch (next.kind) {
         case TOKEN_NAME: {
-            String8 identifier = next.text;
+            Expr *expr = make_expr_name(lexer->parser->arena, &next);
             if (peek_next_token(lexer)->kind == TOKEN_LEFT_PAREN) {
                 eat_token(lexer);
-                result = parse_expr_call(lexer, identifier);
+                result = parse_expr_call(lexer, expr);
             } else {
                 result = make_expr_name(lexer->parser->arena, &next);
             }
@@ -413,12 +413,12 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     return function;
 }
 
-Expr *parse_expr_call(Lexer *lexer, String8 name) {
+Expr *parse_expr_call(Lexer *lexer, Expr *expr) {
     ExprList params = parse_call_params(lexer);
     Token next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
 
-    return make_expr_call(lexer->parser->arena, name, params);
+    return make_expr_call(lexer->parser->arena, expr, params);
 }
 
 ExprList parse_call_params(Lexer *lexer) {
@@ -454,6 +454,7 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
         if (next.kind == TOKEN_NAME) {
             var_type = parse_type_base(lexer);
         }
+        next = *peek_next_token(lexer);
         parser_expect(lexer, &next, TOKEN_COLON);
     } else {
         parser_expect(lexer, &next, TOKEN_COLON_COLON);

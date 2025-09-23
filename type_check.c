@@ -35,26 +35,6 @@ Symbol *make_symbol_var(Arena *arena, String8 name, Type *type) {
     return result;
 }
 
-TypeSyntax *make_type_syntax_function(Arena *arena, ASTNode *node) {
-    TypeSyntax *type_node = push_array(arena, TypeSyntax, 1);
-    type_node->kind = TYPE_SYNTAX_FUNCTION;
-    
-    ASTNode *param_list = node->function_decl.parameters;
-    u64 param_count = param_list->parameter_list.size;
-    
-    type_node->function.params = push_array(arena, TypeSyntax*, param_count);
-    type_node->function.param_count = param_count;
-
-    for (u64 i = 0; i < param_count; i++) {
-        ASTNode *param_node = param_list->parameter_list.items[i];
-        type_node->function.params[i] = param_node->parameter.type;
-    }
-
-    type_node->function.return_type = node->function_decl.return_type;
-
-    return type_node;
-}
-
 Scope *make_child_scope(Arena *local_arena, Scope* parent_scope) {
     Scope *child = push_array(parent_scope->arena, Scope, 1);
     child->arena = local_arena;
@@ -64,23 +44,23 @@ Scope *make_child_scope(Arena *local_arena, Scope* parent_scope) {
 }
 
 Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type) {
-    Type* type = {0};
-    type->kind = TYPE_FUNCTION;
-    type->function.params = parameters;
-    type->function.param_count = parameter_count;
-    type->function.return_type = return_type;
-    return type_intern(scope->arena, &scope->types, type);
+    Type type = {0};
+    type.kind = TYPE_FUNCTION;
+    type.function.params = parameters;
+    type.function.param_count = parameter_count;
+    type.function.return_type = return_type;
+    return type_intern(scope->arena, &GLOBAL_TYPE_TABLE, &type);
 }
 
 Type *make_type_array(Scope *scope, Type* elem_type, u64 size) {
-    Type *type = {0};
-    type->kind = TYPE_ARRAY;
-    type->array.base = elem_type;
-    type->array.size = size;
-    return type_intern(scope->arena, &scope->types, type);
+    Type type = {0};
+    type.kind = TYPE_ARRAY;
+    type.array.base = elem_type;
+    type.array.size = size;
+    return type_intern(scope->arena, &GLOBAL_TYPE_TABLE, &type);
 }
 
-Type *make_type_builtin(Scope *scope, TypeKind kind) {
+Type *make_type_builtin(TypeKind kind) {
     Type type = {0};
     type.kind = kind;
     switch (kind) {
@@ -94,7 +74,7 @@ Type *make_type_builtin(Scope *scope, TypeKind kind) {
             fprintf(stderr, "Attempted to create invalid builtin type: %.*s\n", str8_varg(type_kind_name(kind)));
             return (Type *){0};
     }
-    return type_intern(scope->arena, &scope->types, &type);
+    return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
 }
 
 Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
@@ -108,14 +88,14 @@ ResolvedExpr make_resolved_s32(Scope *scope, i64 value) {
     ResolvedExpr result = {0};
     result.value = value;
     result.is_const = true;
-    result.type = make_type_builtin(scope, TYPE_S32);
+    result.type = make_type_builtin(TYPE_S32);
     return result;
 }
 
 Symbol *resolve_name(String8 name, Scope *scope) {
     Symbol *symbol = scope_get_symbol(scope, name);
     if (!symbol) {
-        fprintf(stderr, "Failed while resolving name: %.*s\n", str8_varg(name));
+        fprintf(stderr, "Undeclared symbol: %.*s\n", str8_varg(name));
         return (Symbol *){0};
     }
     resolve_symbol(symbol, scope);
@@ -143,13 +123,75 @@ i64 resolve_const_expr(Expr *expr, Scope *scope) {
     return result.value;
 }
 
+ResolvedExpr resolved_rvalue(Type *type) {
+    ResolvedExpr result = { .type = type };
+    return result;
+}
+
+ResolvedExpr resolved_lvalue(Type *type) {
+    ResolvedExpr result = { .type = type, .is_lvalue = true, };
+    return result;
+}
+
+ResolvedExpr resolved_const(u64 value) {
+    ResolvedExpr result = { .type = make_type_builtin(TYPE_S32), .is_const = true, .value = value };
+    return result;
+}
+
+ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_CALL);
+    ResolvedExpr called = resolve_expr(expr->call.expr, scope);
+    if (called.type->kind != TYPE_FUNCTION) {
+        fprintf(stderr, "Tried calling non-function: %.*s\n", str8_varg(expr->name));
+        debug_assert(0);
+    }
+    if (expr->call.params.size != called.type->function.param_count) {
+        fprintf(stderr, "Mismatched number of parameters. Function %.*s expected %lu paramters, but was called with %lu\n",
+            str8_varg(called.type->symbol->name), called.type->function.param_count, expr->call.params.size);
+        debug_assert(0);
+    }
+
+    for (u64 i = 0; i < expr->call.params.size; i++) {
+        Expr *param = expr->call.params.items[i];
+        Type *expected_param_type = called.type->function.params[i];
+        scope->expected_return_type = expected_param_type;
+        ResolvedExpr resolved_param = resolve_expr(param, scope);
+        if (expected_param_type != resolved_param.type) {
+            fprintf(stderr, "Type mismatch when attempting to call function %.*s. " 
+                "Parameter %.*s has type %.*s, but parameter of type %.*s was expected",
+                str8_varg(expr->name), str8_varg(param->name), 
+                str8_varg(type_kind_name(resolved_param.type->kind)), str8_varg(type_kind_name(expected_param_type->kind)));
+        }
+    }
+    return resolved_rvalue(called.type->function.return_type);
+}
+
+ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_NAME);
+    Symbol *symbol = resolve_name(expr->name, scope);
+    if (symbol->kind == SYMBOL_VAR) {
+        return resolved_lvalue(symbol->type);
+    }
+    if (symbol->kind == SYMBOL_CONST) {
+        return resolved_const(symbol->value);
+    }
+    if (symbol->kind == SYMBOL_FUNC) {
+        return resolved_rvalue(symbol->type);
+    }
+    return (ResolvedExpr){0};
+}
+
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
     switch (expr->kind) {
+        case EXPR_NAME: 
+            return resolve_expr_name(expr, scope);
         case EXPR_INT: 
             // TODO: Built in types should be allocated in a static arena, not a locally scoped one
             return make_resolved_s32(scope, expr->int_value);
+        case EXPR_CALL:
+            return resolve_expr_call(expr, scope);
         default:
-            // fprintf(stderr, "Failed at resolving expression kind: %.*s", str8_varg(node_kind_name(expr)));
+            fprintf(stderr, "Failed at resolving expression: %.*s\n", str8_varg(expr->name));
             return (ResolvedExpr){0};
     }
 }
@@ -222,7 +264,7 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
 }
 
 void register_decl(Decl *decl, Scope *scope) {
-    Symbol *symbol = table_get(scope->symbols, decl->name);
+    Symbol *symbol = scope_get_symbol(scope, decl->name);
     if (symbol) {
         fprintf(stderr, "Redeclaration of symbol %*.s\n", str8_varg(decl->name));
         return;
@@ -241,7 +283,7 @@ void register_decl(Decl *decl, Scope *scope) {
     }
 
     symbol = make_symbol(scope->arena, kind, decl);
-    if (decl->kind == DECL_STRUCT || DECL_UNION) {
+    if (decl->kind == DECL_STRUCT || decl->kind == DECL_UNION) {
         symbol->state = SYMBOL_RESOLVED;
         symbol->type = make_type_incomplete(scope->arena, symbol);
     }
@@ -258,7 +300,7 @@ void register_builtin_symbols(Scope *global_scope) {
         Symbol symbol = builtin_symbols[i];
         TypeKind type_kind = type_kind_from_str8(symbol.name);
         // This also interns the inbuilt types
-        symbol.type = make_type_builtin(global_scope, type_kind);
+        symbol.type = make_type_builtin(type_kind);
         table_insert(global_scope->arena, &global_scope->symbols, symbol.name, &symbol);
     }
 }
@@ -289,10 +331,46 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     resolve_stmt_block(decl->func.body, local_scope);
 }
 
+void resolve_stmt_decl(Decl *decl, Scope *scope) {
+    switch (decl->kind) {
+        case DECL_VAR: {
+            Type *var_type = resolve_type_syntax(decl->var.type, scope);
+            Type *expr_type = resolve_expr(decl->var.expr, scope).type;
+            
+            if ((var_type->kind != TYPE_VOID) && var_type != expr_type) {
+                fprintf(stderr, "Expression type doesn't match declared type - Decl: %.*s, Expr: %.*s\n",
+                    str8_varg(type_kind_name(var_type->kind)), str8_varg(type_kind_name(expr_type->kind)));
+                return;
+            }
+                
+            Symbol *symbol = make_symbol_var(scope->arena, decl->name, expr_type);
+            table_insert(scope->arena, &scope->symbols, decl->name, symbol);
+            break;
+        }
+        case DECL_FUNC:
+            break;
+        default:
+            debug_assert(0);
+            break;
+    }
+}
+
 void resolve_stmt(Stmt *stmt, Scope *scope) {
     switch (stmt->kind) {
-        case STMT_RETURN:
-            
+        case STMT_RETURN: {
+            // TODO: 
+            if (stmt->expr) {
+                ResolvedExpr expr = resolve_expr(stmt->expr, scope);
+                if (expr.type != scope->expected_return_type) {
+                    fprintf(stderr, "Mismatched return type. Expected %.*s got %.*s",
+                        str8_varg(type_kind_name(scope->expected_return_type->kind)), str8_varg(type_kind_name(expr.type->kind)));
+                    return;
+                }
+            }
+            break;
+        }
+        case STMT_DECL:
+            resolve_stmt_decl(stmt->decl, scope);
             break;
         default:
             debug_assert(0);
@@ -432,7 +510,8 @@ Type *type_intern(Arena *arena, TypeSet **set, Type *key) {
 
 void symbol_print_decls(SymbolTable *symbols) {
     if (symbols) {
-        printf("Symbol: %.*s\n", str8_varg(symbols->value->name));
+        printf("Symbol: %.*s", str8_varg(symbols->value->name));
+        printf(", state: %d\n", symbols->value->state);
         for (u64 i = 0; i < array_count(symbols->child); i++) {
             if (symbols->child[i]) {
                 symbol_print_decls(symbols->child[i]);
