@@ -2,6 +2,6 @@
 
 #include "parser.h"
 
-void codegen_ast(Arena* arena, ASTNode *root, String8 output_path);
+// void codegen_ast(Arena* arena, ASTNode *root, String8 output_path);
 void asm_compile_and_link(Arena *arena, String8 out_flag);
 void codegen_ir(FILE *out);

@@ -12,25 +12,6 @@ struct Parser {
     Arena *arena;
 };
 
-typedef enum ASTNodeKind {
-    NODE_IDENT,
-    NODE_DECL_PARAMETER,
-    NODE_DECL_PARAMETER_LIST,
-    NODE_CALL_PARAMETER,
-    NODE_CALL_PARAMETER_LIST,
-    NODE_VAR_DECL,
-    NODE_VAR_ASSIGN,
-    NODE_INT,
-    NODE_BINARY_OP,
-    NODE_RETURN,
-    NODE_FUNCTION_DECL,
-    NODE_FUNCTION_CALL,
-    NODE_IF,
-    NODE_BLOCK,
-    NODE_STRUCT_DECL,
-    NODE_UNION_DECL,
-} ASTNodeKind;
-
 typedef struct Expr Expr;
 
 typedef struct ExprList ExprList;
@@ -81,11 +62,25 @@ struct ParamList {
     u64 capacity;
 };
 
+typedef struct Field Field;
+struct Field {
+    String8 name;
+    TypeSyntax *type;
+};
+
+typedef struct FieldList FieldList;
+struct FieldList {
+    Field **items;
+    u64 size;
+    u64 capacity;
+};
+
 typedef enum DeclKind {
     DECL_VAR,
     DECL_FUNC,
     DECL_STRUCT,
     DECL_UNION,
+    DECL_ENUM,
 } DeclKind;
 
 typedef struct Decl Decl;
@@ -95,7 +90,7 @@ struct Decl {
     union {
         struct { TypeSyntax *type; Expr *expr; } var;
         struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
-
+        struct { FieldList fields; } aggregate;
     };
 };
 
@@ -126,25 +121,6 @@ struct Stmt {
     };
 };
 
-
-
-typedef struct ASTNode ASTNode;
-struct ASTNode {
-    ASTNodeKind kind;
-
-    union {
-        Expr *expr;
-        struct { ASTNode *expr;} return_val;
-        struct { String8 name; TypeSyntax *type; } parameter;
-        struct { ASTNode **items; u64 size; u64 capacity; } parameter_list;
-        struct { String8 name; ASTNode* parameters; ASTNode *body; TypeSyntax *return_type; } function_decl;
-        struct { ASTNode **items; u64 size; u64 capacity;} block;
-        struct { ASTNode *cond; ASTNode *if_body; ASTNode *else_body;} _if;
-        struct { String8 name; ASTNode *expr;} var_assign;
-        struct { String8 name; TypeSyntax *type; ASTNode *expr;} var_decl;
-    };
-};
-
 typedef enum TypeSyntaxKind {
     TYPE_SYNTAX_NAME,
     TYPE_SYNTAX_FUNCTION, 
@@ -163,8 +139,6 @@ struct TypeSyntax {
     };
 };
 
-String8 node_kind_name(ASTNode* node);
-
 // Operator parsing helpers
 String8 to_operator(Token *token);
 b32 is_binary_operator(Token *token);
@@ -175,7 +149,9 @@ Expr *make_s32(Arena *arena, Token *token);
 Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right);
 Stmt *make_stmt_return(Arena *arena, Expr *expr);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
+Field *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
+Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, Token *token);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
@@ -200,6 +176,9 @@ StmtList parse_stmts(Lexer *lexer);
 Decl *parse_decl_func(Lexer *lexer, String8 name);
 FuncParam *parse_decl_param(Lexer *lexer);
 ParamList parse_decl_params(Lexer *lexer);
+Decl *parse_decl_struct(Lexer *lexer, String8 struct_name);
+FieldList parse_aggregate_fields(Lexer *lexer);
+Field *parse_aggregate_field(Lexer *lexer);
 
 Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
 Decl *parse_decl_var(Lexer *lexer, String8 name);

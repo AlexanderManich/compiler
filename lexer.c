@@ -280,6 +280,8 @@ void eat_token(Lexer *lexer) {
 TokenKind is_keyword(Token *token) {
     if (str8_compare(token->text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
     if (str8_compare(token->text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
+    if (str8_compare(token->text, str8_lit("struct"))) return TOKEN_KEYWORD_STRUCT; 
+    if (str8_compare(token->text, str8_lit("else"))) return TOKEN_KEYWORD_ELSE; 
 
     // TODO: Fix. TokenKind 0 is TOKEN_PLUS which doesn't make sense to return here
     return (TokenKind)0;

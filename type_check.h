@@ -90,6 +90,7 @@ static TypeSet *GLOBAL_TYPE_TABLE = {0};
 
 TypeKind type_kind_from_str8(String8 string);
 String8 str8_from_type_kind(TypeKind kind);
+String8 name_of_type(Type *type);
 
 b32 type_equals(Type* a, Type* b);
 

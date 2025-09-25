@@ -1,6 +1,8 @@
 #include "parser.h"
 #include "type_check.h"
 
+static Arena GLOBAL_TYPE_ARENA;
+
 TypeKind type_kind_from_str8(String8 string) {
     if (str8_compare(string, str8_lit("void"))) return TYPE_VOID;
     if (str8_compare(string, str8_lit("s32"))) return TYPE_S32;
@@ -181,6 +183,40 @@ ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
     return (ResolvedExpr){0};
 }
 
+u64 eval_int_binary(u64 left_val, String8 op, u64 right_val) {
+    // TODO: Op should be an enum and not string!
+    if (str8_compare(op, str8_lit("+"))) {
+        return left_val + right_val;
+    }
+
+    return 0;
+}
+
+ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_BINARY);
+    ResolvedExpr left = resolve_expr(expr->binary.left, scope);
+    ResolvedExpr right = resolve_expr(expr->binary.right, scope);
+    // TODO: Check if any numerical type is match, not just s32 
+    if (left.type != make_type_builtin(TYPE_S32)) {
+        fprintf(stderr, "left operand of + must be of type s32");
+    }
+    if (left.type != right.type) {
+        fprintf(stderr, "Type mismatch - %.*s %.*s %.*s", 
+            str8_varg(name_of_type(left.type)), str8_varg(expr->binary.op), str8_varg(name_of_type(right.type)));
+    }
+    if (left.is_const && right.is_const) {
+        u64 expr_result = eval_int_binary(left.value, expr->binary.op, right.value);
+        return resolved_const(expr_result);
+    } else {
+        return resolved_rvalue(left.type);
+    }
+}
+
+String8 name_of_type(Type *type) {
+    debug_assert(type->symbol);
+    return type->symbol->name;
+}
+
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
     switch (expr->kind) {
         case EXPR_NAME: 
@@ -188,10 +224,14 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
         case EXPR_INT: 
             // TODO: Built in types should be allocated in a static arena, not a locally scoped one
             return make_resolved_s32(scope, expr->int_value);
+        case EXPR_BINARY:
+            return resolve_expr_binary(expr, scope);
         case EXPR_CALL:
             return resolve_expr_call(expr, scope);
         default:
-            fprintf(stderr, "Failed at resolving expression: %.*s\n", str8_varg(expr->name));
+            // TODO: Make print_expr function
+            fprintf(stderr, "Failed at resolving expression: ");
+            ast_print_expr(expr, 0);
             return (ResolvedExpr){0};
     }
 }
@@ -276,6 +316,11 @@ void register_decl(Decl *decl, Scope *scope) {
             break;
         case DECL_FUNC:
             kind = SYMBOL_FUNC;
+            break;
+        case DECL_STRUCT:
+        case DECL_UNION:
+        case DECL_ENUM:
+            kind = SYMBOL_TYPE;
             break;
         default:
             debug_assert(0);

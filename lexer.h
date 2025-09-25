@@ -1,8 +1,6 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#pragma once
-
 #include <stdlib.h>
 #include "base/base_include.h"
 
@@ -40,6 +38,7 @@ typedef enum TokenKind {
     TOKEN_KEYWORD_RETURN,
     TOKEN_KEYWORD_IF,
     TOKEN_KEYWORD_ELSE,
+    TOKEN_KEYWORD_STRUCT,
 
     TOKEN_INVALID,
 } TokenKind;
