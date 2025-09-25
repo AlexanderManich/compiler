@@ -12,6 +12,7 @@ typedef enum TokenKind {
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_MULT,
+    TOKEN_DOT,
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_CURLY,

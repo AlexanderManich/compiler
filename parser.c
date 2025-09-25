@@ -22,95 +22,6 @@ i32 get_precedence_from_kind(TokenKind kind) {
     return token_literals[kind].precedence;
 }
 
-void ast_print_stmt(Stmt *stmt, i32 depth) {
-    printf("%*s", depth, "");
-    switch (stmt->kind) {
-        case STMT_RETURN: 
-            printf("return ");
-            ast_print_expr(stmt->expr, depth + 2);
-            break;
-        default:
-            debug_assert(0);
-            break;
-    }
-}
-
-void ast_print_decl_param(FuncParam *param) {
-    printf("decl param (%.*s: %.*s)\n", str8_varg(param->name), str8_varg(param->type->name));
-}
-
-void ast_print_type_syntax(TypeSyntax *type_syntax) {
-    switch (type_syntax->kind) {
-        case TYPE_SYNTAX_NAME:
-            printf("%.*s\n", str8_varg(type_syntax->name));
-            break;
-        default:
-            debug_assert(0);
-            break;
-    }
-}
-
-void ast_print_expr(Expr *expr, i32 depth) {
-    debug_assert(expr);
-    switch (expr->kind) {
-        case EXPR_NAME:
-            printf("(%.*s)\n", str8_varg(expr->name));
-            break;
-        case EXPR_INT:
-            printf("integer (%ld)\n", expr->int_value);
-            break;
-        case EXPR_BINARY:
-            ast_print_expr(expr->binary.left, depth);
-            printf(" %.*s ", str8_varg(expr->binary.op));
-            ast_print_expr(expr->binary.right, depth);
-            break;
-        case EXPR_CALL:
-            printf("call (%.*s)\n", str8_varg(expr->call.expr->name));
-            for (u64 i = 0; i < expr->call.params.size; i++) {
-                printf("%*s", depth, "");
-                printf("call param ");
-                ast_print_expr(expr->call.params.items[i], depth + 2);
-            }
-            break;
-        default:
-            debug_assert(0);
-            break;
-    }
-}
-
-void ast_print_decl(Decl *decl, i32 depth) {
-    debug_assert(decl);
-    switch (decl->kind) {
-        case DECL_VAR: 
-            ast_print_expr(decl->var.expr, depth + 2);
-            ast_print_type_syntax(decl->var.type);
-            break;
-        case DECL_FUNC:
-            printf("decl func (%.*s)", str8_varg(decl->name));
-            printf(" -> ");
-            ast_print_type_syntax(decl->func.return_type);
-            for (u64 i = 0; i < decl->func.params.size; i++) {
-                printf("%*s", depth, "");
-                ast_print_decl_param(decl->func.params.items[i]);
-            }
-            for (u64 i = 0; i < decl->func.body.size; i++ ) {
-                ast_print_stmt(decl->func.body.items[i], depth + 2);
-            }
-            break;
-        default:
-            debug_assert(0);
-            break;
-    }
-}
-
-void ast_print(DeclList decls, i32 depth) {
-    if (!decls.size) return;
-    printf("%*s", depth, "");
-    
-    for (u64 i = 0; i < decls.size; i++) {
-        ast_print_decl(decls.items[i], depth + 2);
-    }
-}
 
 // Make nodes
 Expr *make_s32(Arena *arena, Token *token) {
@@ -133,6 +44,13 @@ Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right) 
 Stmt *make_stmt_return(Arena *arena, Expr *expr) {
     Stmt *result = push_array(arena, Stmt, 1);
     result->kind = STMT_RETURN;
+    result->expr = expr;
+    return result;
+}
+
+Stmt *make_stmt_expr(Arena *arena, Expr *expr) {
+    Stmt *result = push_array(arena, Stmt, 1);
+    result->kind = STMT_EXPR;
     result->expr = expr;
     return result;
 }
@@ -177,6 +95,21 @@ Expr *make_expr_call(Arena *arena, Expr *expr, ExprList params) {
     return result;
 }
 
+Expr *make_expr_field(Arena *arena, Expr *expr, String8 field_name) {
+    Expr *result = push_array(arena, Expr, 1);
+    result->kind = EXPR_FIELD;
+    result->field.expr = expr;
+    result->field.name = field_name;
+    return result;
+}
+
+Expr *make_expr_compound(Arena *arena, ExprList fields) {
+    Expr *result = push_array(arena, Expr, 1);
+    result->kind = EXPR_COMPOUND;
+    result->compound_literal.fields = fields;
+    return result;
+}
+
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body) {
     Stmt *result = push_array(arena, Stmt, 1);
     result->kind = STMT_IF;
@@ -186,10 +119,10 @@ Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_bod
     return result;
 }
 
-Expr *make_expr_name(Arena *arena, Token *token) {
+Expr *make_expr_name(Arena *arena, String8 name) {
     Expr *expr = push_array(arena, Expr, 1);
     expr->kind = EXPR_NAME;
-    expr->name = token->text;
+    expr->name = name;
     return expr;
 }
 
@@ -220,28 +153,59 @@ TypeSyntax *make_type_syntax_name(Arena *arena, String8 name) {
 // Parsing
 Expr *parse_leaf(Lexer *lexer) {
     Token next = *peek_next_token(lexer);
-    eat_token(lexer);
 
     Expr *result = push_array(lexer->parser->arena, Expr, 1);
     switch (next.kind) {
         case TOKEN_NAME: {
-            Expr *expr = make_expr_name(lexer->parser->arena, &next);
-            if (peek_next_token(lexer)->kind == TOKEN_LEFT_PAREN) {
-                eat_token(lexer);
-                result = parse_expr_call(lexer, expr);
-            } else {
-                result = make_expr_name(lexer->parser->arena, &next);
+            parser_expect(lexer, &next, TOKEN_NAME);
+            Expr *expr = make_expr_name(lexer->parser->arena, next.text);
+            next = *peek_next_token(lexer);
+
+            switch (next.kind) {
+                case TOKEN_LEFT_PAREN: {
+                    // function call
+                    result = parse_expr_call(lexer, expr);
+                    break;
+                }
+                case TOKEN_DOT: {
+                    // field access
+                    eat_token(lexer);
+                    next = *peek_next_token(lexer);
+                    String8 field_name = next.text;
+                    result = make_expr_field(lexer->parser->arena, expr, field_name);
+                    break;
+                }
+                default:
+                    // identifier
+                    result = expr;
+                    break;
             }
-            return result;
+            break;
+        }
+        case TOKEN_LEFT_CURLY: {
+            // Compound literal
+            ExprList fields = {0};
+            parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+            while (next.kind != TOKEN_RIGHT_CURLY) {
+                Expr *field = parse_expr_compound_field(lexer);
+                da_append(lexer->parser->arena, fields, field);
+                next = *peek_next_token(lexer);
+            }
+            parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
+            result = make_expr_compound(lexer->parser->arena, fields);
+            break;
         }
         case TOKEN_INT: {
+            parser_expect(lexer, &next, TOKEN_INT);
             result = make_s32(lexer->parser->arena, &next);
-            return result;
+            break;
         }
         default:
             fprintf(stderr, "Error: Unexpected token '%.*s'\n", str8_varg(next.text));
             exit(EXIT_FAILURE);
     }
+
+    return result;
 }
 
 Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence) {
@@ -272,27 +236,44 @@ Expr *parse_expr(Lexer *lexer, i32 min_precedence) {
     return left;
 }
 
+Expr *parse_expr_compound_field(Lexer *lexer) {
+    Token *next = peek_next_token(lexer);
+    Expr *field = parse_expr(lexer, 0);
+    next = peek_next_token(lexer);
+    if (next->kind != TOKEN_RIGHT_CURLY) {
+        parser_expect(lexer, next, TOKEN_COMMA);
+    }
+    return field;
+}
+
 Stmt *parse_stmt(Lexer *lexer) {
-    Token next = *peek_next_token(lexer);
-    eat_token(lexer);
+    Token *next = peek_next_token(lexer);
 
     Stmt *statement = {0};
     
-    if (next.kind == TOKEN_KEYWORD_IF) {
-        statement = parse_stmt_if(lexer);
-    }     
-    if (next.kind == TOKEN_NAME) {
-        String8 name = next.text;
-
-        Token next = *peek_next_token(lexer);
-        if (next.kind == TOKEN_COLON || next.kind == TOKEN_COLON_COLON) {
-            statement = parse_stmt_decl(lexer, name);
-        } else if (next.kind == TOKEN_EQUAL) {
-            statement = parse_stmt_assign(lexer, name);
+    switch (next->kind) {
+        case TOKEN_KEYWORD_IF: {
+            statement = parse_stmt_if(lexer);
+            break;
         }
-    }
-    if (next.kind == TOKEN_KEYWORD_RETURN) {
-        statement = parse_stmt_return(lexer);
+        case TOKEN_KEYWORD_RETURN: {
+            statement = parse_stmt_return(lexer);
+            break;
+        }
+        default: {
+            String8 name = next->text;
+            
+            next = peek_token(lexer, 1);
+            if (next->kind == TOKEN_COLON || next->kind == TOKEN_COLON_COLON) {
+                statement = parse_stmt_decl(lexer, name);
+            } else if (next->kind == TOKEN_EQUAL) {
+                statement = parse_stmt_assign(lexer, name);
+            } else {
+                statement = parse_stmt_expr(lexer);
+            }
+            break;
+            // fprintf(stderr, "Error: something went wrong while trying to parse statement\n");
+        }
     }
 
     return statement;
@@ -446,8 +427,10 @@ Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
 }
 
 Expr *parse_expr_call(Lexer *lexer, Expr *expr) {
-    ExprList params = parse_call_params(lexer);
     Token next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
+    ExprList params = parse_call_params(lexer);
+    next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
 
     return make_expr_call(lexer->parser->arena, expr, params);
@@ -477,9 +460,11 @@ ExprList parse_call_params(Lexer *lexer) {
 }
 
 Decl *parse_decl_var(Lexer *lexer, String8 name) {
-    // Expect colon followed by type followed by colon, otherwise expect colon colon
-    TypeSyntax *var_type = make_type_syntax_name(lexer->parser->arena, str8_lit("void"));
     Token next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_NAME);
+
+    TypeSyntax *var_type = push_array(lexer->parser->arena, TypeSyntax, 1);
+    next = *peek_next_token(lexer);
     if (next.kind != TOKEN_COLON_COLON) {
         parser_expect(lexer, &next, TOKEN_COLON);
         next = *peek_next_token(lexer);
@@ -515,9 +500,12 @@ Stmt *parse_stmt_decl(Lexer *lexer, String8 name) {
 }
 
 Stmt *parse_stmt_if(Lexer *lexer) {
+    Token next = *peek_next_token(lexer);
+
+    parser_expect(lexer, &next, TOKEN_KEYWORD_IF);
     Expr *cond = parse_expr(lexer, -1);
     
-    Token next = *peek_next_token(lexer);
+    next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
 
     StmtList if_body = parse_stmts(lexer);
@@ -536,11 +524,24 @@ Stmt *parse_stmt_if(Lexer *lexer) {
     return if_statement;
 }
 
-Stmt *parse_stmt_return(Lexer *lexer) {
+Stmt *parse_stmt_expr(Lexer *lexer) {
     Expr *expr = parse_expr(lexer, -1);
+    Token *next = peek_next_token(lexer);
+    parser_expect(lexer, next, TOKEN_SEMICOLON);
+    return make_stmt_expr(lexer->parser->arena, expr);
+}
+
+Stmt *parse_stmt_return(Lexer *lexer) {
+    Token next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_KEYWORD_RETURN);
+    Expr *expr = {0};
+    next = *peek_next_token(lexer);
+    if (next.kind != TOKEN_SEMICOLON) {
+        expr = parse_expr(lexer, -1);
+    } 
     Stmt *return_statement = make_stmt_return(lexer->parser->arena, expr);
 
-    Token next = *peek_next_token(lexer);
+    next = *peek_next_token(lexer);
     parser_expect(lexer, &next, TOKEN_SEMICOLON);
 
     return return_statement;
@@ -582,7 +583,7 @@ i32 i32_from_str8(String8 str) {
     }
 
     if (i < str.size) {
-        fprintf(stderr, "Error: Invalid integer format: %.*s\n", (i32)str.size, str.str);
+        fprintf(stderr, "Error: Invalid integer format: %.*s\n", str8_varg(str));
         return 0;
     }
 
@@ -615,3 +616,145 @@ String8 str8_from_i32(Arena *arena, i32 num) {
     return str;
 }
 
+void print_indent(i32 depth) {
+    for (i32 i = 0; i < depth; i++) printf("  "); // 2 spaces per level
+}
+
+void ast_print_stmt(Stmt *stmt, i32 depth) {
+    print_indent(depth);
+    switch (stmt->kind) {
+        case STMT_RETURN:
+            printf("return\n");
+            if (stmt->expr) {
+                ast_print_expr(stmt->expr, depth + 1);
+            }
+            break;
+        case STMT_EXPR:
+            printf("stmt expr\n");
+            ast_print_expr(stmt->expr, depth + 1);
+            break;
+        case STMT_DECL:
+            printf("decl statement\n");
+            ast_print_decl(stmt->decl, depth + 1);
+            break;
+        case STMT_ASSIGN:
+            printf("assign (%.*s)\n", str8_varg(stmt->assign_stmt.name));
+            ast_print_expr(stmt->assign_stmt.expr, depth + 1);
+            break;
+        case STMT_IF:
+            printf("if\n");
+            print_indent(depth + 1);
+            printf("cond:\n");
+            ast_print_expr(stmt->if_stmt.cond, depth + 2);
+            print_indent(depth + 1);
+            printf("then:\n");
+            for (u64 i = 0; i < stmt->if_stmt.if_body.size; i++)
+                ast_print_stmt(stmt->if_stmt.if_body.items[i], depth + 2);
+            if (stmt->if_stmt.else_body.size) {
+                print_indent(depth + 1);
+                printf("else:\n");
+                for (u64 i = 0; i < stmt->if_stmt.else_body.size; i++)
+                    ast_print_stmt(stmt->if_stmt.else_body.items[i], depth + 2);
+            }
+            break;
+        default:
+            print_indent(depth);
+            printf("unknown stmt kind %d\n", stmt->kind);
+            break;
+    }
+}
+
+void ast_print_decl_param(FuncParam *param, i32 depth) {
+    print_indent(depth);
+    printf("param (%.*s: %.*s)\n", str8_varg(param->name), str8_varg(param->type->name));
+}
+
+void ast_print_type_syntax(TypeSyntax *type_syntax, i32 depth) {
+    print_indent(depth);
+    switch (type_syntax->kind) {
+        case TYPE_SYNTAX_NAME:
+            printf("type (%.*s)\n", str8_varg(type_syntax->name));
+            break;
+        default:
+            printf("unknown type syntax %d\n", type_syntax->kind);
+            break;
+    }
+}
+
+void ast_print_decl(Decl *decl, i32 depth) {
+    print_indent(depth);
+    switch (decl->kind) {
+        case DECL_VAR:
+            printf("var (%.*s)\n", str8_varg(decl->name));
+            ast_print_type_syntax(decl->var.type, depth + 1);
+            ast_print_expr(decl->var.expr, depth + 1);
+            break;
+        case DECL_FUNC:
+            printf("func (%.*s)\n", str8_varg(decl->name));
+            ast_print_type_syntax(decl->func.return_type, depth + 1);
+            for (u64 i = 0; i < decl->func.params.size; i++)
+                ast_print_decl_param(decl->func.params.items[i], depth + 1);
+            for (u64 i = 0; i < decl->func.body.size; i++)
+                ast_print_stmt(decl->func.body.items[i], depth + 1);
+            break;
+        case DECL_STRUCT:
+            printf("struct (%.*s)\n", str8_varg(decl->name));
+            for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
+                print_indent(depth + 1);
+                Field *field = decl->aggregate.fields.items[i];
+                printf("field (%.*s: %.*s)\n", str8_varg(field->name), str8_varg(field->type->name));
+            }
+            break;
+        default:
+            printf("unknown decl kind %d\n", decl->kind);
+            break;
+    }
+}
+
+void ast_print(DeclList decls, i32 depth) {
+    for (u64 i = 0; i < decls.size; i++) {
+        ast_print_decl(decls.items[i], depth);
+    }
+}
+
+void ast_print_expr(Expr *expr, i32 depth) {
+    print_indent(depth);
+    switch (expr->kind) {
+        case EXPR_NAME:
+            printf("name (%.*s)\n", str8_varg(expr->name));
+            break;
+        case EXPR_INT:
+            printf("int (%ld)\n", expr->int_value);
+            break;
+        case EXPR_BINARY:
+            printf("binary (%.*s)\n", str8_varg(expr->binary.op));
+            ast_print_expr(expr->binary.left, depth + 1);
+            ast_print_expr(expr->binary.right, depth + 1);
+            break;
+        case EXPR_CALL:
+            printf("call\n");
+            print_indent(depth + 1);
+            printf("callee:\n");
+            ast_print_expr(expr->call.expr, depth + 2);
+            for (u64 i = 0; i < expr->call.params.size; i++) {
+                print_indent(depth + 1);
+                printf("arg %llu:\n", (unsigned long long)i);
+                ast_print_expr(expr->call.params.items[i], depth + 2);
+            }
+            break;
+        case EXPR_FIELD:
+            printf("field (%.*s)\n", str8_varg(expr->field.name));
+            ast_print_expr(expr->field.expr, depth + 1);
+            break;
+        case EXPR_COMPOUND:
+            printf("compound literal\n");
+            for (u64 i = 0; i < expr->compound_literal.fields.size; i++) {
+                ast_print_expr(expr->compound_literal.fields.items[i], depth + 1);
+            }
+            break;
+        default:
+            print_indent(depth);
+            printf("unknown expr kind %d\n", expr->kind);
+            break;
+    }
+}

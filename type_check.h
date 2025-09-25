@@ -3,18 +3,21 @@
 
 typedef enum TypeKind {
     TYPE_VOID,
-    TYPE_INCOMPLETE,
-    TYPE_COMPLETING,
     TYPE_S8,
     TYPE_S16,
     TYPE_S32,
     TYPE_S64,
+    TYPE_NUMERICAL_END,
+    TYPE_INCOMPLETE,
+    TYPE_COMPLETING,
     TYPE_FUNCTION,
     TYPE_ARRAY,
     TYPE_PTR,
 } TypeKind;
 
 typedef struct Symbol Symbol;
+
+
 typedef struct Type Type;
 struct Type {
     TypeKind kind;
@@ -53,6 +56,14 @@ struct Symbol {
     u64 value;
 };
 
+static Symbol builtin_symbols[] = {
+    [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID }},
+    [TYPE_S8]  =  { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1}},
+    [TYPE_S16]  = { .name = str8_lit_comp("s16"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16, .size= 2, .align = 2}},
+    [TYPE_S32]  = { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32, .size= 4, .align = 4}},
+    [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8}},
+};
+
 // https://nullprogram.com/blog/2023/09/30/ 
 typedef struct SymbolTable SymbolTable;
 struct SymbolTable {
@@ -73,6 +84,7 @@ typedef struct Scope Scope;
 struct Scope {
     SymbolTable *symbols;
     Type *expected_return_type;
+    Type *expected_decl_type;
     Scope *parent;
     Arena *arena;
 };

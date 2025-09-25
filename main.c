@@ -34,7 +34,7 @@ static u8 global_arena_buffer[GLOBAL_ARENA_SIZE];
 static u8 parser_arena_buffer[PARSER_ARENA_SIZE];
 #define TYPE_ARENA_SIZE MB(1)
 static u8 type_arena_buffer[TYPE_ARENA_SIZE];
-static Arena GLOBAL_TYPE_ARENA;
+static Arena GLOBAL_TYPE_ARENA = {0};
 
 int main(int argc, char **argv) {
     Arena global_arena = {0};
@@ -89,7 +89,6 @@ int main(int argc, char **argv) {
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
-
     // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);

@@ -26,6 +26,8 @@ typedef enum ExprKind {
     EXPR_INT,
     EXPR_CALL,
     EXPR_BINARY,
+    EXPR_FIELD,
+    EXPR_COMPOUND,
 } ExprKind;
 
 struct Expr {
@@ -36,6 +38,9 @@ struct Expr {
         struct { Expr *left; Expr *right; String8 op; } binary;
         struct { Expr *expr; String8 op; } unary;
         struct { Expr *expr; ExprList params; } call;
+        struct { Expr *expr; String8 name; } field;
+        // TODO: Support designated initialization 
+        struct { ExprList fields; } compound_literal;
     };
 };
 
@@ -149,12 +154,13 @@ Expr *make_s32(Arena *arena, Token *token);
 Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right);
 Stmt *make_stmt_return(Arena *arena, Expr *expr);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
-Field *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type);
+Field *make_field(Arena *arena, String8 name, TypeSyntax* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
 Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
-Expr *make_expr_name(Arena *arena, Token *token);
+Expr *make_expr_name(Arena *arena, String8 name);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
+Expr *make_expr_compound(Arena *arena, ExprList fields);
 Decl *make_var_decl(Arena *arena, String8 name, TypeSyntax* type, Expr *expr);
 Decl *make_var_assign(Arena *arena, String8 name, Expr *expr);
 
@@ -168,6 +174,7 @@ Expr *parse_expr(Lexer *lexer, i32 min_precedence);
 Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence);
 Expr *parse_expr_call(Lexer *lexer, Expr *expr);
 ExprList parse_call_params(Lexer *lexer);
+Expr *parse_expr_compound_field(Lexer *lexer);
 
 // Statement parsing
 Stmt *parse_stmt(Lexer *lexer);
@@ -181,6 +188,7 @@ FieldList parse_aggregate_fields(Lexer *lexer);
 Field *parse_aggregate_field(Lexer *lexer);
 
 Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
+Stmt *parse_stmt_expr(Lexer *lexer);
 Decl *parse_decl_var(Lexer *lexer, String8 name);
 Stmt *parse_stmt_assign(Lexer *lexer, String8 name);
 
@@ -198,7 +206,7 @@ void ast_print(DeclList decls, i32 depth);
 void ast_print_decl(Decl *decl, i32 depth);
 void ast_print_expr(Expr *expr, i32 depth);
 void ast_print_stmt(Stmt *stmt, i32 depth);
-void ast_print_type_syntax(TypeSyntax *type_syntax);
+void ast_print_type_syntax(TypeSyntax *type_syntax, i32 depth);
 
 // String/Number conversions
 i32 i32_from_str8(String8 str);

@@ -26,6 +26,7 @@ TokenLiteral token_literals[] = {
     [TOKEN_PLUS]        = {.symbol = str8_lit_comp("+"),  .kind = TOKEN_PLUS,        .precedence = 120},
     [TOKEN_MINUS]       = {.symbol = str8_lit_comp("-"),  .kind = TOKEN_MINUS,       .precedence = 120},
     [TOKEN_MULT]        = {.symbol = str8_lit_comp("*"),  .kind = TOKEN_MULT,        .precedence = 130},
+    [TOKEN_DOT]         = {.symbol = str8_lit_comp("."),  .kind = TOKEN_DOT,         .precedence = 150},
 };
 
 String8 token_kind_name(TokenKind kind) {
@@ -76,6 +77,8 @@ String8 token_kind_name(TokenKind kind) {
             return str8_lit("less than");
         case TOKEN_GT:
             return str8_lit("greater than");
+        case TOKEN_DOT:
+            return str8_lit("dot");
 
         // Keywords
         case TOKEN_KEYWORD_RETURN:
@@ -281,7 +284,7 @@ TokenKind is_keyword(Token *token) {
     if (str8_compare(token->text, str8_lit("return"))) return TOKEN_KEYWORD_RETURN; 
     if (str8_compare(token->text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
     if (str8_compare(token->text, str8_lit("struct"))) return TOKEN_KEYWORD_STRUCT; 
-    if (str8_compare(token->text, str8_lit("else"))) return TOKEN_KEYWORD_ELSE; 
+    if (str8_compare(token->text, str8_lit("else")))   return TOKEN_KEYWORD_ELSE; 
 
     // TODO: Fix. TokenKind 0 is TOKEN_PLUS which doesn't make sense to return here
     return (TokenKind)0;

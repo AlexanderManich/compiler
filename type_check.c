@@ -7,7 +7,7 @@ TypeKind type_kind_from_str8(String8 string) {
     if (str8_compare(string, str8_lit("void"))) return TYPE_VOID;
     if (str8_compare(string, str8_lit("s32"))) return TYPE_S32;
 
-    fprintf(stderr, "No name defined for TypeKind: %.*s\n", str8_varg(string));
+    fprintf(stderr, "No TypeKind defined for name: %.*s\n", str8_varg(string));
     return TYPE_VOID;
 }
 
@@ -18,6 +18,11 @@ String8 type_kind_name(TypeKind kind) {
         default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
     return (String8){0};
+}
+
+String8 name_of_type(Type *type) {
+    debug_assert(type->symbol);
+    return type->symbol->name;
 }
 
 Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl) {
@@ -51,7 +56,7 @@ Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, T
     type.function.params = parameters;
     type.function.param_count = parameter_count;
     type.function.return_type = return_type;
-    return type_intern(scope->arena, &GLOBAL_TYPE_TABLE, &type);
+    return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
 }
 
 Type *make_type_array(Scope *scope, Type* elem_type, u64 size) {
@@ -59,23 +64,6 @@ Type *make_type_array(Scope *scope, Type* elem_type, u64 size) {
     type.kind = TYPE_ARRAY;
     type.array.base = elem_type;
     type.array.size = size;
-    return type_intern(scope->arena, &GLOBAL_TYPE_TABLE, &type);
-}
-
-Type *make_type_builtin(TypeKind kind) {
-    Type type = {0};
-    type.kind = kind;
-    switch (kind) {
-        case TYPE_VOID:
-            break;
-        case TYPE_S32:
-            type.size = 4;
-            type.align = 4;
-            break;
-        default:
-            fprintf(stderr, "Attempted to create invalid builtin type: %.*s\n", str8_varg(type_kind_name(kind)));
-            return (Type *){0};
-    }
     return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
 }
 
@@ -90,7 +78,7 @@ ResolvedExpr make_resolved_s32(Scope *scope, i64 value) {
     ResolvedExpr result = {0};
     result.value = value;
     result.is_const = true;
-    result.type = make_type_builtin(TYPE_S32);
+    result.type = builtin_symbols[TYPE_S32].type;
     return result;
 }
 
@@ -136,7 +124,7 @@ ResolvedExpr resolved_lvalue(Type *type) {
 }
 
 ResolvedExpr resolved_const(u64 value) {
-    ResolvedExpr result = { .type = make_type_builtin(TYPE_S32), .is_const = true, .value = value };
+    ResolvedExpr result = { .type = builtin_symbols[TYPE_S32].type, .is_const = true, .value = value };
     return result;
 }
 
@@ -197,7 +185,7 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
     ResolvedExpr left = resolve_expr(expr->binary.left, scope);
     ResolvedExpr right = resolve_expr(expr->binary.right, scope);
     // TODO: Check if any numerical type is match, not just s32 
-    if (left.type != make_type_builtin(TYPE_S32)) {
+    if (left.type != builtin_symbols[TYPE_S32].type) {
         fprintf(stderr, "left operand of + must be of type s32");
     }
     if (left.type != right.type) {
@@ -212,9 +200,17 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
     }
 }
 
-String8 name_of_type(Type *type) {
-    debug_assert(type->symbol);
-    return type->symbol->name;
+ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_COMPOUND);
+    if (!scope->expected_decl_type) {
+        fprintf(stderr, "Compound literal used in initialization with no explicit type");
+    }
+    ExprList fields = expr->compound_literal.fields;
+    for (u64 i = 0; i < fields.size; i++) {
+        Expr *field = fields.items[i];
+        resolve_expr(field, scope);
+    }
+    return resolved_rvalue(scope->expected_decl_type);
 }
 
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
@@ -228,6 +224,8 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
             return resolve_expr_binary(expr, scope);
         case EXPR_CALL:
             return resolve_expr_call(expr, scope);
+        case EXPR_COMPOUND:
+            return resolve_expr_compound(expr, scope);
         default:
             // TODO: Make print_expr function
             fprintf(stderr, "Failed at resolving expression: ");
@@ -257,6 +255,7 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
         //     break;
         case SYMBOL_FUNC:
             symbol->type = resolve_decl_func(symbol->decl, scope);
+            symbol->type->symbol = symbol;
             break;
         default:
             debug_assert(0);
@@ -267,6 +266,8 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
 }
 
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
+    if (!type_syntax) return (Type *){0};
+
     switch (type_syntax->kind) {
         case TYPE_SYNTAX_NAME: {
             String8 name = type_syntax->name;
@@ -335,18 +336,13 @@ void register_decl(Decl *decl, Scope *scope) {
     table_insert(scope->arena, &scope->symbols, symbol->name, symbol);
 }
 
-static Symbol builtin_symbols[] = {
-    { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED },
-    { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED },
-};
+
 
 void register_builtin_symbols(Scope *global_scope) {
-    for (u64 i = 0; i < array_count(builtin_symbols); i++) {
-        Symbol symbol = builtin_symbols[i];
-        TypeKind type_kind = type_kind_from_str8(symbol.name);
-        // This also interns the inbuilt types
-        symbol.type = make_type_builtin(type_kind);
-        table_insert(global_scope->arena, &global_scope->symbols, symbol.name, &symbol);
+    for (u64 i = 0; i < TYPE_NUMERICAL_END; i++) {
+        Symbol *symbol = &builtin_symbols[i];
+        symbol->type->symbol = symbol;
+        table_insert(global_scope->arena, &global_scope->symbols, symbol->name, symbol);
     }
 }
 
@@ -357,7 +353,7 @@ void register_decls(DeclList decls, Scope *scope) {
 }
 
 void complete_type(Type *type) {
-
+    
 }
 
 void resolve_func_body(Symbol *symbol, Scope *local_scope) {
@@ -379,12 +375,17 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
 void resolve_stmt_decl(Decl *decl, Scope *scope) {
     switch (decl->kind) {
         case DECL_VAR: {
-            Type *var_type = resolve_type_syntax(decl->var.type, scope);
+            Type *var_type = {0};
+            if (decl->var.type->name.str) {
+                var_type = resolve_type_syntax(decl->var.type, scope);
+            }
+            scope->expected_decl_type = var_type;
             Type *expr_type = resolve_expr(decl->var.expr, scope).type;
             
-            if ((var_type->kind != TYPE_VOID) && var_type != expr_type) {
+            if (var_type && var_type != expr_type) {
+                debug_assert(var_type->symbol && expr_type->symbol);
                 fprintf(stderr, "Expression type doesn't match declared type - Decl: %.*s, Expr: %.*s\n",
-                    str8_varg(type_kind_name(var_type->kind)), str8_varg(type_kind_name(expr_type->kind)));
+                    str8_varg(var_type->symbol->name), str8_varg(expr_type->symbol->name));
                 return;
             }
                 
@@ -417,6 +418,9 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
         case STMT_DECL:
             resolve_stmt_decl(stmt->decl, scope);
             break;
+        case STMT_EXPR:
+            resolve_expr(stmt->expr, scope);
+            break;
         default:
             debug_assert(0);
             break;
@@ -440,10 +444,8 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope) {
             complete_type(symbol->type);
         }
         if (symbol->kind == SYMBOL_FUNC) {
-            TempArena temp = temp_begin(scope->arena);
-            Scope *func_scope = make_child_scope(temp.arena, scope);
+            Scope *func_scope = make_child_scope(scope->arena, scope);
             resolve_func_body(symbol, func_scope);
-            temp_end(temp);
         }
         for (u64 i = 0; i < array_count(symbols->child); i++){
             if (symbols->child[i]) {
@@ -452,7 +454,6 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope) {
         }
     }
 }
-
 
 // https://nullprogram.com/blog/2023/09/30/ 
 u64 str8_hash(String8 key) {
@@ -524,16 +525,17 @@ u64 type_hash(Type *type) {
 b32 type_equals(Type *a, Type *b) {
     if (!(a && b)) return false;
     if (a->kind != b->kind) return false;
-    if (a->kind == TYPE_FUNCTION) {
-        if (a->function.param_count != b->function.param_count) return false;
-        if (a->function.return_type != b->function.return_type) return false;
-
-        for (u64 i = 0; i < a->function.param_count; i++) {
-            if (a->function.params[i] != b->function.params[i]) return false;
-        }
+    switch (a->kind) {
+        case TYPE_FUNCTION:
+            if (a->function.param_count != b->function.param_count) return false;
+            if (a->function.return_type != b->function.return_type) return false;
+            for (u64 i = 0; i < a->function.param_count; i++) {
+                if (a->function.params[i] != b->function.params[i]) return false;
+            }
+            return true;
+        default:
+            return false;
     }
-
-    return true;
 }
 
 Type *type_intern(Arena *arena, TypeSet **set, Type *key) {
