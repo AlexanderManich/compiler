@@ -11,12 +11,21 @@ typedef enum TypeKind {
     TYPE_INCOMPLETE,
     TYPE_COMPLETING,
     TYPE_FUNCTION,
+    TYPE_STRUCT,
+    TYPE_ENUM,
     TYPE_ARRAY,
     TYPE_PTR,
 } TypeKind;
 
 typedef struct Symbol Symbol;
+typedef struct Field Field;
 
+typedef struct FieldList FieldList;
+struct FieldList {
+    Field *items;
+    u64 size;
+    u64 capacity;
+};
 
 typedef struct Type Type;
 struct Type {
@@ -27,10 +36,18 @@ struct Type {
     Symbol *symbol;
     union {
         struct { Type* return_type; Type** params; u64 param_count; } function;
+        struct { FieldList fields; } aggregate;
         struct { Type* base; u64 size; } array;
         struct { Type* base; } ptr;
     };
 };
+
+typedef struct Field Field;
+struct Field {
+    String8 name;
+    Type *type;
+};
+
 
 typedef enum SymbolKind {
     SYMBOL_NONE,
@@ -57,11 +74,11 @@ struct Symbol {
 };
 
 static Symbol builtin_symbols[] = {
-    [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID }},
-    [TYPE_S8]  =  { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1}},
-    [TYPE_S16]  = { .name = str8_lit_comp("s16"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16, .size= 2, .align = 2}},
-    [TYPE_S32]  = { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32, .size= 4, .align = 4}},
-    [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8}},
+    [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID } },
+    [TYPE_S8]  =  { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1} },
+    [TYPE_S16]  = { .name = str8_lit_comp("s16"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16, .size= 2, .align = 2} },
+    [TYPE_S32]  = { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32, .size= 4, .align = 4} },
+    [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8} },
 };
 
 // https://nullprogram.com/blog/2023/09/30/ 
@@ -78,6 +95,7 @@ struct TypeSet {
     Type *key;
 };
 
+// TODO: I should not use scope.arena to allocate symbols in this 
 static SymbolTable *GLOBAL_ORDERED_SYMBOLS = {0};
 
 typedef struct Scope Scope;
@@ -121,11 +139,13 @@ void resolve_stmt_block(StmtList block, Scope *scope);
 void resolve_stmt(Stmt *stmt, Scope *scope);
 void resolve_symbol(Symbol *symbol, Scope *scope);
 void resolve_symbols(SymbolTable *symbols, Scope *scope);
-void complete_type(Type *type);
+void complete_type(Type *type, Scope *scope);
 
 TypeSyntax *make_type_syntax(String8 name, Type *type, TypeSyntax *type_syntax, b32 is_defined);
 Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type);
 Type *make_type_array(Scope *scope, Type* elem_type, u64 size);
+void make_type_struct(Type *type, FieldList fields);
+void make_type_union(Type *type, FieldList fields);
 Type *make_type_builtin(TypeKind kind);
 
 u64 str8_hash(String8 key);
@@ -134,4 +154,7 @@ Symbol *table_get(SymbolTable *table, String8 key);
 Symbol *scope_get_symbol(Scope *scope, String8 key);
 
 Type *type_intern(Arena *arena, TypeSet **set, Type *key);
+
+b32 fields_have_duplicates(FieldList fields);
+
 void symbol_print_decls(SymbolTable *symbols);

@@ -62,14 +62,14 @@ FuncParam *make_decl_param(Arena *arena, String8 name, TypeSyntax* type) {
     return result;
 }
 
-Field *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type) {
-    Field *result = push_array(arena, Field, 1);
+FieldSyntax *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type) {
+    FieldSyntax *result = push_array(arena, FieldSyntax , 1);
     result->name = name;
     result->type = type;
     return result;
 }
 
-Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields) {
+Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields) {
     Decl *result = push_array(arena, Decl, 1);
     result->kind = DECL_STRUCT;
     result->name = struct_name;
@@ -391,7 +391,7 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     return function;
 }
 
-Field *parse_aggregate_field(Lexer *lexer) {
+FieldSyntax *parse_aggregate_field(Lexer *lexer) {
     Token *next = peek_next_token(lexer);
     String8 field_name = next->text;
     eat_token(lexer);
@@ -406,10 +406,10 @@ Field *parse_aggregate_field(Lexer *lexer) {
     return make_aggregate_field(lexer->parser->arena, field_name, field_type);
 }
 
-FieldList parse_aggregate_fields(Lexer *lexer) {
-    FieldList result = {0};
+FieldSyntaxList parse_aggregate_fields(Lexer *lexer) {
+    FieldSyntaxList result = {0};
     for (Token *next = peek_next_token(lexer); next->kind != TOKEN_RIGHT_CURLY; next = peek_next_token(lexer)) {
-        Field *field = parse_aggregate_field(lexer);
+        FieldSyntax *field = parse_aggregate_field(lexer);
         da_append(lexer->parser->arena, result, field);
     }
     return result;
@@ -419,7 +419,7 @@ Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
     eat_token(lexer); // Eat struct keyword
     Token *next = peek_next_token(lexer);
     parser_expect(lexer, next, TOKEN_LEFT_CURLY);
-    FieldList fields = parse_aggregate_fields(lexer);
+    FieldSyntaxList fields = parse_aggregate_fields(lexer);
     next = peek_next_token(lexer);
     parser_expect(lexer, next, TOKEN_RIGHT_CURLY);
 
@@ -701,7 +701,7 @@ void ast_print_decl(Decl *decl, i32 depth) {
             printf("struct (%.*s)\n", str8_varg(decl->name));
             for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
                 print_indent(depth + 1);
-                Field *field = decl->aggregate.fields.items[i];
+                FieldSyntax *field = decl->aggregate.fields.items[i];
                 printf("field (%.*s: %.*s)\n", str8_varg(field->name), str8_varg(field->type->name));
             }
             break;

@@ -67,15 +67,15 @@ struct ParamList {
     u64 capacity;
 };
 
-typedef struct Field Field;
-struct Field {
+typedef struct FieldSyntax FieldSyntax;
+struct FieldSyntax {
     String8 name;
     TypeSyntax *type;
 };
 
-typedef struct FieldList FieldList;
-struct FieldList {
-    Field **items;
+typedef struct FieldSyntaxList FieldSyntaxList;
+struct FieldSyntaxList {
+    FieldSyntax **items;
     u64 size;
     u64 capacity;
 };
@@ -95,7 +95,7 @@ struct Decl {
     union {
         struct { TypeSyntax *type; Expr *expr; } var;
         struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
-        struct { FieldList fields; } aggregate;
+        struct { FieldSyntaxList fields; } aggregate;
     };
 };
 
@@ -154,9 +154,9 @@ Expr *make_s32(Arena *arena, Token *token);
 Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right);
 Stmt *make_stmt_return(Arena *arena, Expr *expr);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
-Field *make_field(Arena *arena, String8 name, TypeSyntax* type);
+FieldSyntax *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
-Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields);
+Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, String8 name);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
@@ -184,8 +184,8 @@ Decl *parse_decl_func(Lexer *lexer, String8 name);
 FuncParam *parse_decl_param(Lexer *lexer);
 ParamList parse_decl_params(Lexer *lexer);
 Decl *parse_decl_struct(Lexer *lexer, String8 struct_name);
-FieldList parse_aggregate_fields(Lexer *lexer);
-Field *parse_aggregate_field(Lexer *lexer);
+FieldSyntaxList parse_aggregate_fields(Lexer *lexer);
+FieldSyntax *parse_aggregate_field(Lexer *lexer);
 
 Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
 Stmt *parse_stmt_expr(Lexer *lexer);

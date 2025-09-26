@@ -352,8 +352,60 @@ void register_decls(DeclList decls, Scope *scope) {
     }
 }
 
-void complete_type(Type *type) {
+void complete_struct_type(Type *type, FieldList fields) {
+    debug_assert(type->kind == TYPE_COMPLETING);
+    type->kind = TYPE_STRUCT;
+    for (u64 i = 0; i < fields.size; i++) {
+        // TODO: Add padding
+        type->size = fields.items[i].type->size + type->size;
+        type->align = max(fields.items[i].type->align, type->align);
+    }
+    type->aggregate.fields = fields;
+}
+
+void complete_union_type(Type *type, FieldList fields) {
+    // TODO:
+}
+
+void complete_type(Type *type, Scope *scope) {
+    if (type->kind == TYPE_COMPLETING) {
+        fprintf(stderr, "Cyclic type dependency while trying to complete type: %.*s", str8_varg(type->symbol->name));
+    }
+    if (type->kind != TYPE_INCOMPLETE) {
+        return;
+    }
+    type->kind = TYPE_COMPLETING;
+    Decl *decl = type->symbol->decl;
+    debug_assert(decl->kind == DECL_STRUCT || decl->kind == DECL_UNION);
+    FieldList fields = {0};
+
+    for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
+        FieldSyntax *field_syntax = decl->aggregate.fields.items[i];
+        Type *field_type = resolve_type_syntax(field_syntax->type, scope);
+        complete_type(field_type, scope);
+        Field field = { .name = field_syntax->name, .type = field_type };
+        da_append(scope->arena, fields, field);
+    }
+
+    String8 type_name = type->symbol->name;
+
+    if (fields.size == 0) {
+        fprintf(stderr, "Aggregate type %.*s has no fields\n", str8_varg(type_name));
+        debug_assert(0);
+    }
+
+    if (fields_have_duplicates(fields)) {
+        fprintf(stderr, "Duplicate fields in aggregate %.*s\n", str8_varg(type_name));
+    }
+
+    if (decl->kind == DECL_STRUCT) {
+        complete_struct_type(type, fields);
+    }
+    if (decl->kind == DECL_UNION) {
+        complete_union_type(type, fields);
+    }
     
+    table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, type->symbol->name, type->symbol);
 }
 
 void resolve_func_body(Symbol *symbol, Scope *local_scope) {
@@ -441,7 +493,7 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope) {
         Symbol *symbol = symbols->value;
         resolve_symbol(symbol, scope);
         if (symbol->kind == SYMBOL_TYPE) {
-            complete_type(symbol->type);
+            complete_type(symbol->type, scope);
         }
         if (symbol->kind == SYMBOL_FUNC) {
             Scope *func_scope = make_child_scope(scope->arena, scope);
@@ -453,6 +505,15 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope) {
             }
         }
     }
+}
+
+b32 fields_have_duplicates(FieldList fields) {
+    for (u64 i = 0; i < fields.size; i++) {
+        for (u64 j = i+1; j < fields.size; j++) {
+            if (str8_compare(fields.items[i].name, fields.items[j].name)) return true;
+        }
+    }
+    return false;
 }
 
 // https://nullprogram.com/blog/2023/09/30/ 
