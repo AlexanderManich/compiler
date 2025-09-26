@@ -121,7 +121,7 @@ struct Stmt {
         Expr* expr;
         Decl *decl;
         StmtList block;
-        struct  { String8 name; Expr *expr; } assign_stmt;
+        struct  { Expr *lhs; Expr *rhs; } assign_stmt;
         struct { Expr *cond; StmtList if_body; StmtList else_body; } if_stmt;
     };
 };
@@ -188,9 +188,9 @@ FieldSyntaxList parse_aggregate_fields(Lexer *lexer);
 FieldSyntax *parse_aggregate_field(Lexer *lexer);
 
 Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
-Stmt *parse_stmt_expr(Lexer *lexer);
+Stmt *parse_stmt_expr(Lexer *lexer, Expr *expr);
 Decl *parse_decl_var(Lexer *lexer, String8 name);
-Stmt *parse_stmt_assign(Lexer *lexer, String8 name);
+Stmt *parse_stmt_assign(Lexer *lexer, Expr *lhs);
 
 TypeSyntax *parse_type_base(Lexer *lexer);
 
@@ -198,7 +198,7 @@ TypeSyntax *parse_type_base(Lexer *lexer);
 Stmt *parse_stmt_if(Lexer *lexer);
 Stmt *parse_stmt_return(Lexer *lexer);
 
-void parser_expect(Lexer *lexer, Token *token, TokenKind expected);
+Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
 
 // Parse tree printing...

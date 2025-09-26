@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
-    // ast_print(program_ast, 0);
+    ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
-    symbol_print_decls(global_scope.symbols);
+    // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
 
     // if (!output_file_path.str) {
