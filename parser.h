@@ -13,6 +13,9 @@ struct Parser {
 };
 
 typedef struct Expr Expr;
+typedef struct TypeSyntax TypeSyntax;
+typedef struct StmtList StmtList;
+typedef struct Stmt Stmt;
 
 typedef struct ExprList ExprList;
 struct ExprList {
@@ -40,13 +43,9 @@ struct Expr {
         struct { Expr *expr; ExprList params; } call;
         struct { Expr *expr; String8 name; } field;
         // TODO: Support designated initialization 
-        struct { ExprList fields; } compound_literal;
+        struct { ExprList fields; TypeSyntax *type; } compound_literal;
     };
 };
-
-typedef struct TypeSyntax TypeSyntax;
-typedef struct StmtList StmtList;
-typedef struct Stmt Stmt;
 
 struct StmtList {
     Stmt **items;
@@ -160,7 +159,7 @@ Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, String8 name);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
-Expr *make_expr_compound(Arena *arena, ExprList fields);
+Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type);
 Decl *make_var_decl(Arena *arena, String8 name, TypeSyntax* type, Expr *expr);
 Decl *make_var_assign(Arena *arena, String8 name, Expr *expr);
 
@@ -175,6 +174,7 @@ Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence);
 Expr *parse_expr_call(Lexer *lexer, Expr *expr);
 ExprList parse_call_params(Lexer *lexer);
 Expr *parse_expr_compound_field(Lexer *lexer);
+Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type);
 
 // Statement parsing
 Stmt *parse_stmt(Lexer *lexer);

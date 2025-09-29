@@ -103,10 +103,11 @@ Expr *make_expr_field(Arena *arena, Expr *expr, String8 field_name) {
     return result;
 }
 
-Expr *make_expr_compound(Arena *arena, ExprList fields) {
+Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type) {
     Expr *result = push_array(arena, Expr, 1);
     result->kind = EXPR_COMPOUND;
     result->compound_literal.fields = fields;
+    result->compound_literal.type = type;
     return result;
 }
 
@@ -169,11 +170,17 @@ Expr *parse_leaf(Lexer *lexer) {
                 }
                 case TOKEN_DOT: {
                     // field access
-                    eat_token(lexer);
+                    parser_expect(lexer, &next, TOKEN_DOT);
                     next = *peek_next_token(lexer);
                     parser_expect(lexer, &next, TOKEN_NAME);
                     String8 field_name = next.text;
                     result = make_expr_field(lexer->parser->arena, expr, field_name);
+                    break;
+                }
+                case TOKEN_LEFT_CURLY: {
+                    // Compound literal
+                    TypeSyntax *type = make_type_syntax_name(lexer->parser->arena, expr->name);
+                    result = parse_expr_compound(lexer, type);
                     break;
                 }
                 default:
@@ -185,15 +192,13 @@ Expr *parse_leaf(Lexer *lexer) {
         }
         case TOKEN_LEFT_CURLY: {
             // Compound literal
-            ExprList fields = {0};
-            parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
-            while (next.kind != TOKEN_RIGHT_CURLY) {
-                Expr *field = parse_expr_compound_field(lexer);
-                da_append(lexer->parser->arena, fields, field);
-                next = *peek_next_token(lexer);
-            }
-            parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
-            result = make_expr_compound(lexer->parser->arena, fields);
+            result = parse_expr_compound(lexer, 0);
+            break;
+        }
+        case TOKEN_LEFT_PAREN: {
+            parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
+            result = parse_expr(lexer, -1);
+            parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
             break;
         }
         case TOKEN_INT: {
@@ -235,6 +240,19 @@ Expr *parse_expr(Lexer *lexer, i32 min_precedence) {
     }
     
     return left;
+}
+
+Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type) {
+    ExprList fields = {0};
+    Token next = *peek_next_token(lexer);
+    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+    while (next.kind != TOKEN_RIGHT_CURLY) {
+        Expr *field = parse_expr_compound_field(lexer);
+        da_append(lexer->parser->arena, fields, field);
+        next = *peek_next_token(lexer);
+    }
+    parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
+    return make_expr_compound(lexer->parser->arena, fields, type);
 }
 
 Expr *parse_expr_compound_field(Lexer *lexer) {
@@ -468,6 +486,7 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
     }
 
     Expr *rhs = parse_expr(lexer, -1);
+
     Decl *var_decl = make_var_decl(lexer->parser->arena, name, var_type, rhs);
 
     next = *peek_next_token(lexer);

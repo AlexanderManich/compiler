@@ -50,7 +50,7 @@ Scope *make_child_scope(Arena *local_arena, Scope* parent_scope) {
     return child;
 }
 
-Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type) {
+Type *make_type_function(Type **parameters, u64 parameter_count, Type *return_type) {
     Type type = {0};
     type.kind = TYPE_FUNCTION;
     type.function.params = parameters;
@@ -59,7 +59,7 @@ Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, T
     return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
 }
 
-Type *make_type_array(Scope *scope, Type* elem_type, u64 size) {
+Type *make_type_array(Type* elem_type, u64 size) {
     Type type = {0};
     type.kind = TYPE_ARRAY;
     type.array.base = elem_type;
@@ -74,7 +74,7 @@ Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
     return type; 
 }
 
-ResolvedExpr make_resolved_s32(Scope *scope, i64 value) {
+ResolvedExpr make_resolved_s32(i64 value) {
     ResolvedExpr result = {0};
     result.value = value;
     result.is_const = true;
@@ -100,7 +100,7 @@ Type *resolve_decl_func(Decl *decl, Scope *scope) {
         params[i] = resolve_type_syntax(decl->func.params.items[i]->type, scope);
     }
     Type *return_type = resolve_type_syntax(decl->func.return_type, scope);
-    Type *type_func = make_type_function(scope, params, param_count, return_type);
+    Type *type_func = make_type_function(params, param_count, return_type);
     return type_func;
 }
 
@@ -202,15 +202,54 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
 
 ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_COMPOUND);
-    if (!scope->expected_decl_type) {
-        fprintf(stderr, "Compound literal used in initialization with no explicit type");
+    if (!scope->expected_decl_type && !expr->compound_literal.type) {
+        fprintf(stderr, "Compound literal used in initialization with no explicit type\n");
     }
-    ExprList fields = expr->compound_literal.fields;
-    for (u64 i = 0; i < fields.size; i++) {
-        Expr *field = fields.items[i];
-        resolve_expr(field, scope);
+    Type *type = {0};
+    if (expr->compound_literal.type) {
+        type = resolve_type_syntax(expr->compound_literal.type, scope);
+    } else {
+        type = scope->expected_decl_type;
     }
-    return resolved_rvalue(scope->expected_decl_type);
+    complete_type(type, scope);
+
+    if (type->kind != TYPE_STRUCT && type->kind != TYPE_UNION && type->kind != TYPE_ARRAY) {
+        fprintf(stderr, "Attempted to initialize non aggregate or array type with compound literal\n");
+    }
+
+    if (type->kind == TYPE_STRUCT || type->kind == TYPE_UNION) {
+        ExprList fields = expr->compound_literal.fields;
+        for (u64 i = 0; i < fields.size; i++) {
+            Expr *field = fields.items[i];
+            resolve_expr(field, scope);
+        }
+    } else if (type->kind == TYPE_ARRAY) {
+        // TODO:
+    } else {
+        debug_assert(0);
+    }
+    return resolved_rvalue(type);
+}
+
+ResolvedExpr resolve_expr_field(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_FIELD);
+    ResolvedExpr accessee = resolve_expr(expr->field.expr, scope);
+    Type *accessee_type = accessee.type;
+    complete_type(accessee_type, scope);
+    if (accessee_type->kind != TYPE_STRUCT && accessee_type->kind != TYPE_UNION) {
+        fprintf(stderr, "Attempted to access field on non-aggregate type\n");
+        return (ResolvedExpr){0};
+    }
+    for (u64 i = 0; i < accessee_type->aggregate.fields.size; i++) {
+        Field field = accessee_type->aggregate.fields.items[i];
+        if (str8_compare(field.name, expr->field.name)) {
+            return accessee.is_lvalue ? resolved_lvalue(field.type) : resolved_rvalue(field.type);
+        }
+    }
+
+    fprintf(stderr, "No field named %.*s on type %.*s", str8_varg(expr->field.name), str8_varg(expr->field.expr->name));
+
+    return (ResolvedExpr){0};
 }
 
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
@@ -219,13 +258,15 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
             return resolve_expr_name(expr, scope);
         case EXPR_INT: 
             // TODO: Built in types should be allocated in a static arena, not a locally scoped one
-            return make_resolved_s32(scope, expr->int_value);
+            return make_resolved_s32(expr->int_value);
         case EXPR_BINARY:
             return resolve_expr_binary(expr, scope);
         case EXPR_CALL:
             return resolve_expr_call(expr, scope);
         case EXPR_COMPOUND:
             return resolve_expr_compound(expr, scope);
+        case EXPR_FIELD:
+            return resolve_expr_field(expr, scope);
         default:
             // TODO: Make print_expr function
             fprintf(stderr, "Failed at resolving expression: ");
@@ -285,14 +326,14 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
                 params[i] = resolve_type_syntax(type_syntax->function.params[i], scope);
             }
             Type *return_type = resolve_type_syntax(type_syntax->function.return_type, scope);
-            Type *type_func = make_type_function(scope, params, param_count, return_type);
+            Type *type_func = make_type_function(params, param_count, return_type);
             return type_func;
         }
         case TYPE_SYNTAX_ARRAY: {
             Type *elem_type = resolve_type_syntax(type_syntax->array.base, scope);
             u64 size = resolve_const_expr(type_syntax->array.size, scope);
             
-            Type *type_array = make_type_array(scope, elem_type, size);
+            Type *type_array = make_type_array(elem_type, size);
             return type_array;
         }
         case TYPE_SYNTAX_POINTER: {
@@ -363,9 +404,11 @@ void complete_struct_type(Type *type, FieldList fields) {
     type->aggregate.fields = fields;
 }
 
+#if 0
 void complete_union_type(Type *type, FieldList fields) {
     // TODO:
 }
+#endif
 
 void complete_type(Type *type, Scope *scope) {
     if (type->kind == TYPE_COMPLETING) {
@@ -402,7 +445,7 @@ void complete_type(Type *type, Scope *scope) {
         complete_struct_type(type, fields);
     }
     if (decl->kind == DECL_UNION) {
-        complete_union_type(type, fields);
+        // complete_union_type(type, fields);
     }
     
     table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, type->symbol->name, type->symbol);
@@ -453,6 +496,28 @@ void resolve_stmt_decl(Decl *decl, Scope *scope) {
     }
 }
 
+void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
+    debug_assert(stmt->kind == STMT_ASSIGN);
+    ResolvedExpr lhs = resolve_expr(stmt->assign_stmt.lhs, scope);
+    ResolvedExpr rhs = resolve_expr(stmt->assign_stmt.rhs, scope);
+
+    if (lhs.type != rhs.type) {
+        fprintf(stderr, "Trying to assign rhs of type %.*s, to lhs of type %.*s\n", 
+            str8_varg(type_kind_name(rhs.type->kind)), str8_varg(type_kind_name(lhs.type->kind)));
+        return;
+    }
+
+    if (!lhs.is_lvalue) {
+        fprintf(stderr, "Trying to assign to non lvalue lhs\n");
+        return;
+    }
+
+    if (lhs.is_const) {
+        fprintf(stderr, "Lhs is const and cannot be modified\n");
+        return;
+    }
+}
+
 void resolve_stmt(Stmt *stmt, Scope *scope) {
     switch (stmt->kind) {
         case STMT_RETURN: {
@@ -469,6 +534,9 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
         }
         case STMT_DECL:
             resolve_stmt_decl(stmt->decl, scope);
+            break;
+        case STMT_ASSIGN:
+            resolve_stmt_assign(stmt, scope);
             break;
         case STMT_EXPR:
             resolve_expr(stmt->expr, scope);

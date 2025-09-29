@@ -12,6 +12,7 @@ typedef enum TypeKind {
     TYPE_COMPLETING,
     TYPE_FUNCTION,
     TYPE_STRUCT,
+    TYPE_UNION,
     TYPE_ENUM,
     TYPE_ARRAY,
     TYPE_PTR,
@@ -142,8 +143,8 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope);
 void complete_type(Type *type, Scope *scope);
 
 TypeSyntax *make_type_syntax(String8 name, Type *type, TypeSyntax *type_syntax, b32 is_defined);
-Type *make_type_function(Scope *scope, Type **parameters, u64 parameter_count, Type *return_type);
-Type *make_type_array(Scope *scope, Type* elem_type, u64 size);
+Type *make_type_function(Type **parameters, u64 parameter_count, Type *return_type);
+Type *make_type_array(Type* elem_type, u64 size);
 void make_type_struct(Type *type, FieldList fields);
 void make_type_union(Type *type, FieldList fields);
 Type *make_type_builtin(TypeKind kind);
