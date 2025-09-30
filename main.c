@@ -74,8 +74,11 @@ int main(int argc, char **argv) {
     
     Parser parser = {0};
     parser.arena = &parser_arena;
+    parser.file = input_file_path;
     
     Lexer lexer = {0};
+    lexer.current_char = 1;
+    lexer.current_line = 1;
     lexer.input = input;
     lexer.parser = &parser;
     

@@ -135,9 +135,10 @@ inline void eat_char(Lexer *lexer) {
     debug_assert(lexer->input_cursor < lexer->input.size);
     char c = lexer->input.str[lexer->input_cursor];
     lexer->input_cursor += 1;
+    lexer->current_char += 1;
     if (c == '\n') {
         lexer->current_line += 1;
-        lexer->current_char = lexer->input_cursor;
+        lexer->current_char = 1;
     }
 }
 
@@ -167,7 +168,7 @@ Token *lexer_make_token_literal(Lexer *lexer, TokenLiteral literal) {
     result->text.str  = literal.symbol.str;
     result->text.size = text_len;
     result->end_line  = lexer->current_line;
-    result->end_char  = result->start_char + text_len;
+    result->end_char  = result->start_char + text_len - 1;
 
     lexer->input_cursor += text_len;
     

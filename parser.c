@@ -324,7 +324,7 @@ DeclList parse_program(Lexer *lexer) {
             Decl *var_decl = parse_decl_var(lexer, decl_name);
             da_append(lexer->parser->arena, program, var_decl);
         } else {
-            print_parse_error(lexer, next, "expected ::, or :");
+            print_parse_error(lexer, next, "expected :: or :");
         }
     }   
 
@@ -569,6 +569,7 @@ TypeSyntax *parse_type_base(Lexer *lexer) {
 Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
     if (token->kind != expected) {
         print_parse_error(lexer, token, "Expected '%s'", token_kind_name(expected));
+        return token;
     }
     eat_token(lexer);
     return token;
@@ -577,13 +578,13 @@ Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    fprintf(stderr, "l%ld:c%d: ", lexer->current_line, token->end_char - token->start_char);
+    i32 token_length = token->end_char - token->start_char;
+    fprintf(stderr, "%.*s:%ld:%d: ", str8_varg(lexer->parser->file), lexer->current_line, (int)lexer->current_char - token_length);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, " before '%.*s' \n", str8_varg(token->text));
-    fprintf(stderr, "%.*s\n", (int)lexer->input_cursor, lexer->input.str + lexer->current_char);
-    fprintf(stderr, "%*s^\n", (token->end_char - token->start_char) - 1, "");
-
-    va_end(args);
+    fprintf(stderr, "%.*s\n", (int)(lexer->input_cursor - lexer->current_char + token->end_char) , lexer->input.str);
+    fprintf(stderr, "%*s^\n", (int)(lexer->current_char - token_length - 1), "");
+    va_end(args);    
 }
 
 i32 i32_from_str8(String8 str) {

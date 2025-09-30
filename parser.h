@@ -10,6 +10,7 @@
 typedef struct Parser Parser;
 struct Parser {
     Arena *arena;
+    String8 file;
 };
 
 typedef struct Expr Expr;
