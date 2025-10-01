@@ -204,6 +204,7 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_COMPOUND);
     if (!scope->expected_decl_type && !expr->compound_literal.type) {
         fprintf(stderr, "Compound literal used in initialization with no explicit type\n");
+        debug_assert(0);
     }
     Type *type = {0};
     if (expr->compound_literal.type) {
@@ -215,6 +216,7 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
 
     if (type->kind != TYPE_STRUCT && type->kind != TYPE_UNION && type->kind != TYPE_ARRAY) {
         fprintf(stderr, "Attempted to initialize non aggregate or array type with compound literal\n");
+        debug_assert(0);
     }
 
     if (type->kind == TYPE_STRUCT || type->kind == TYPE_UNION) {

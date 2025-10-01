@@ -179,6 +179,9 @@ Expr *parse_leaf(Lexer *lexer) {
                 }
                 case TOKEN_LEFT_CURLY: {
                     // Compound literal
+                    // TODO: If you accidently type 'Struct' instead of 'struct', 
+                    // the parser thinks we are creating compound literal with a type qualifier, 
+                    // resulting in a non-sensical parsing error.
                     TypeSyntax *type = make_type_syntax_name(lexer->parser->arena, expr->name);
                     result = parse_expr_compound(lexer, type);
                     break;
