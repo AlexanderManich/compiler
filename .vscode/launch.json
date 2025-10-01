@@ -12,7 +12,7 @@
             "args": [
                 "input.test",
                 "-o",
-                "build/main.out"
+                "build/test.out"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",

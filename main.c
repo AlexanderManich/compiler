@@ -98,11 +98,11 @@ int main(int argc, char **argv) {
     // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
 
-    // if (!output_file_path.str) {
-    //     output_file_path = str8_lit("main");
-    // }
-    // codegen_ast(&global_arena, program_ast, output_file_path);
-    // asm_compile_and_link(&global_arena, output_file_path);
+    if (!output_file_path.str) {
+        output_file_path = str8_lit("build/main");
+    }
+    codegen_ast(&global_arena, program_ast, output_file_path);
+    asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
@@ -111,5 +111,5 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "type_check.c"
-// #include "ir.c"
-// #include "code_gen.c"
+#include "ir.c"
+#include "code_gen.c"
