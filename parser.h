@@ -7,10 +7,16 @@
 #include "lexer.h"
 #include "base/base_arena.h"
 
+typedef enum ParserContext {
+    CONTEXT_DEFAULT,
+    CONTEXT_CONDITION,
+} ParserContext;
+
 typedef struct Parser Parser;
 struct Parser {
     Arena *arena;
     String8 file;
+    ParserContext context;
 };
 
 typedef struct Expr Expr;

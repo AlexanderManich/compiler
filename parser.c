@@ -27,63 +27,74 @@ i32 get_precedence_from_kind(TokenKind kind) {
 Expr *make_s32(Arena *arena, Token *token) {
     // TODO: This needs fixing later. Not sure how to handle different sizes of int. Obviously we can't know while parsing.
     Expr *result = push_array(arena, Expr, 1);
-    result->kind = EXPR_INT;
-    result->int_value = i32_from_str8(token->text);
+    *result = (Expr){ 
+        .kind = EXPR_INT, 
+        .int_value = i32_from_str8(token->text) 
+    };
     return result;
 }
 
 Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right) {
     Expr *result = push_array(arena, Expr, 1);
-    result->kind = EXPR_BINARY;
-    result->binary.left = left;
-    result->binary.op = operator;
-    result->binary.right = right;
+    *result = (Expr){ 
+        .kind = EXPR_BINARY, 
+        .binary.left = left, 
+        .binary.op = operator, 
+        .binary.right = right 
+    };
     return result;
 }
 
 Stmt *make_stmt_return(Arena *arena, Expr *expr) {
     Stmt *result = push_array(arena, Stmt, 1);
-    result->kind = STMT_RETURN;
-    result->expr = expr;
+    *result = (Stmt){ 
+        .kind = STMT_RETURN,
+        .expr = expr 
+    };
     return result;
 }
 
 Stmt *make_stmt_expr(Arena *arena, Expr *expr) {
     Stmt *result = push_array(arena, Stmt, 1);
-    result->kind = STMT_EXPR;
-    result->expr = expr;
+    *result = (Stmt){
+        .kind = STMT_EXPR,
+        .expr = expr
+    };
     return result;
+
 }
 
 FuncParam *make_decl_param(Arena *arena, String8 name, TypeSyntax* type) {
     FuncParam *result = push_array(arena, FuncParam, 1);
-    result->name = name;
-    result->type = type;
+    *result = (FuncParam){
+        .name = name,
+        .type = type
+    };
     return result;
 }
 
 FieldSyntax *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type) {
     FieldSyntax *result = push_array(arena, FieldSyntax , 1);
-    result->name = name;
-    result->type = type;
+    *result = (FieldSyntax){
+        .name = name,
+        .type = type
+    };
     return result;
 }
 
 Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields) {
     Decl *result = push_array(arena, Decl, 1);
-    result->kind = DECL_STRUCT;
-    result->name = struct_name;
-    result->aggregate.fields = fields;
+    *result = (Decl){
+        .kind = DECL_STRUCT, 
+        .name = struct_name,
+        .aggregate.fields = fields,
+    };
     return result;
 }
 
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type) {
     Decl *result = push_array(arena, Decl, 1);
-    result->kind = DECL_FUNC;
-    result->name = name;
-    result->func.params = params;
-    result->func.body = body;
-    result->func.return_type = return_type;
+    *result = (Decl){.kind = DECL_FUNC, .name = name, .func.params = params, .func.body = body, .func.return_type = return_type};
     return result;
 }
 
@@ -171,8 +182,7 @@ Expr *parse_leaf(Lexer *lexer) {
                 case TOKEN_DOT: {
                     // field access
                     parser_expect(lexer, &next, TOKEN_DOT);
-                    next = *peek_next_token(lexer);
-                    parser_expect(lexer, &next, TOKEN_NAME);
+                    next = *parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
                     String8 field_name = next.text;
                     result = make_expr_field(lexer->parser->arena, expr, field_name);
                     break;
@@ -182,6 +192,11 @@ Expr *parse_leaf(Lexer *lexer) {
                     // TODO: If you accidently type 'Struct' instead of 'struct', 
                     // the parser thinks we are creating compound literal with a type qualifier, 
                     // resulting in a non-sensical parsing error.
+                    if (lexer->parser->context == CONTEXT_CONDITION) {
+                        result = expr;
+                        break;
+                    }
+
                     TypeSyntax *type = make_type_syntax_name(lexer->parser->arena, expr->name);
                     result = parse_expr_compound(lexer, type);
                     break;
@@ -247,8 +262,7 @@ Expr *parse_expr(Lexer *lexer, i32 min_precedence) {
 
 Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type) {
     ExprList fields = {0};
-    Token next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+    Token next = *parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
     while (next.kind != TOKEN_RIGHT_CURLY) {
         Expr *field = parse_expr_compound_field(lexer);
         da_append(lexer->parser->arena, fields, field);
@@ -259,9 +273,8 @@ Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type) {
 }
 
 Expr *parse_expr_compound_field(Lexer *lexer) {
-    Token *next = peek_next_token(lexer);
     Expr *field = parse_expr(lexer, 0);
-    next = peek_next_token(lexer);
+    Token *next = peek_next_token(lexer);
     if (next->kind != TOKEN_RIGHT_CURLY) {
         parser_expect(lexer, next, TOKEN_COMMA);
     }
@@ -287,6 +300,7 @@ Stmt *parse_stmt(Lexer *lexer) {
     if (next->kind == TOKEN_EQUAL) {
         return parse_stmt_assign(lexer, lhs);
     }
+
     return parse_stmt_expr(lexer, lhs);
 }
 
@@ -339,8 +353,7 @@ FuncParam *parse_decl_param(Lexer *lexer) {
     String8 param_name = next.text;
     eat_token(lexer);
 
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_COLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
 
     TypeSyntax *param_type = parse_type_base(lexer); 
 
@@ -378,8 +391,7 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     Token next = *peek_next_token(lexer);
     ParamList params = parse_decl_params(lexer);
 
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
 
     // Parse optional return type
     TypeSyntax *return_type = make_type_syntax_name(lexer->parser->arena, str8_lit("void"));
@@ -389,15 +401,13 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     }
     next = *peek_next_token(lexer);
     if (next.kind == TOKEN_ARROW) {
-        eat_token(lexer);
+        parser_expect(lexer, &next, TOKEN_ARROW);
         return_type = parse_type_base(lexer);
     }
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
 
     StmtList body = parse_stmts(lexer);
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
 
     Decl *function = make_decl_func(lexer->parser->arena, name, params, body, return_type);
 
@@ -405,16 +415,13 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
 }
 
 FieldSyntax *parse_aggregate_field(Lexer *lexer) {
-    Token *next = peek_next_token(lexer);
+    Token *next = parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
     String8 field_name = next->text;
-    eat_token(lexer);
 
-    next = peek_next_token(lexer);
-    parser_expect(lexer, next, TOKEN_COLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
 
     TypeSyntax *field_type = parse_type_base(lexer); 
-    next = peek_next_token(lexer);
-    parser_expect(lexer, next, TOKEN_SEMICOLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return make_aggregate_field(lexer->parser->arena, field_name, field_type);
 }
@@ -430,7 +437,7 @@ FieldSyntaxList parse_aggregate_fields(Lexer *lexer) {
 
 Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
     parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON_COLON);
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_STRUCT); // Struct keyword
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_STRUCT); 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY); 
 
     FieldSyntaxList fields = parse_aggregate_fields(lexer);
@@ -441,11 +448,9 @@ Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
 }
 
 Expr *parse_expr_call(Lexer *lexer, Expr *expr) {
-    Token next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_LEFT_PAREN);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_PAREN);
     ExprList params = parse_call_params(lexer);
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
 
     return make_expr_call(lexer->parser->arena, expr, params);
 }
@@ -482,8 +487,7 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
         if (next.kind == TOKEN_NAME) {
             var_type = parse_type_base(lexer);
         }
-        next = *peek_next_token(lexer);
-        parser_expect(lexer, &next, TOKEN_COLON);
+        parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
     } else {
         parser_expect(lexer, &next, TOKEN_COLON_COLON);
     }
@@ -492,18 +496,15 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
 
     Decl *var_decl = make_var_decl(lexer->parser->arena, name, var_type, rhs);
 
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_SEMICOLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return var_decl;
 }
 
 Stmt *parse_stmt_assign(Lexer *lexer, Expr *lhs) {
-    Token *next = peek_next_token(lexer);
-    parser_expect(lexer, next, TOKEN_EQUAL);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_EQUAL);
     Expr *rhs = parse_expr(lexer, -1);
-    next = peek_next_token(lexer);
-    parser_expect(lexer, next, TOKEN_SEMICOLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
     Stmt *var_assign = make_stmt_assign(lexer->parser->arena, lhs, rhs);
     return var_assign;
 }
@@ -516,23 +517,23 @@ Stmt *parse_stmt_decl(Lexer *lexer, String8 name) {
 }
 
 Stmt *parse_stmt_if(Lexer *lexer) {
-    Token next = *peek_next_token(lexer);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_IF);
 
-    parser_expect(lexer, &next, TOKEN_KEYWORD_IF);
+    lexer->parser->context = CONTEXT_CONDITION;
     Expr *cond = parse_expr(lexer, -1);
-    
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+    lexer->parser->context = CONTEXT_DEFAULT;
 
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
     StmtList if_body = parse_stmts(lexer);
-
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_RIGHT_CURLY);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
 
     StmtList else_body = {0};
-    if (peek_token(lexer, 1)->kind == TOKEN_KEYWORD_ELSE)  {
-        eat_token(lexer);
+    Token *next = peek_next_token(lexer);
+    if (next->kind == TOKEN_KEYWORD_ELSE)  {
+        parser_expect(lexer, next, TOKEN_KEYWORD_ELSE);
+        parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
         else_body = parse_stmts(lexer);
+        parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
     }
 
     Stmt *if_statement = make_stmt_if(lexer->parser->arena, cond, if_body, else_body);

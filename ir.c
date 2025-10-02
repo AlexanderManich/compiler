@@ -52,7 +52,7 @@ void ir_gen_function(Decl *decl) {
     register_counter = 0;
 
     for (u64 i = 0; i < decl->func.params.size; i++) {
-        FuncParam *param = decl->func.params.items[i];
+        // FuncParam *param = decl->func.params.items[i];
     }
 
     for (u64 i = 0; i < decl->func.body.size; i++) {
