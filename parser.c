@@ -542,32 +542,27 @@ Stmt *parse_stmt_if(Lexer *lexer) {
 }
 
 Stmt *parse_stmt_expr(Lexer *lexer, Expr *expr) {
-    Token *next = peek_next_token(lexer);
-    parser_expect(lexer, next, TOKEN_SEMICOLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
     return make_stmt_expr(lexer->parser->arena, expr);
 }
 
 Stmt *parse_stmt_return(Lexer *lexer) {
-    Token next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_KEYWORD_RETURN);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_RETURN);
     Expr *expr = {0};
-    next = *peek_next_token(lexer);
+    Token next = *peek_next_token(lexer);
     if (next.kind != TOKEN_SEMICOLON) {
         expr = parse_expr(lexer, -1);
     } 
     Stmt *return_statement = make_stmt_return(lexer->parser->arena, expr);
 
-    next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_SEMICOLON);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return return_statement;
 }
 
 TypeSyntax *parse_type_base(Lexer *lexer) {
-    Token next = *peek_next_token(lexer);
-    parser_expect(lexer, &next, TOKEN_NAME);
-
-    return make_type_syntax_name(lexer->parser->arena, next.text);
+    Token *next = parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
+    return make_type_syntax_name(lexer->parser->arena, next->text);
 }
 
 Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
