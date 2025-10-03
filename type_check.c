@@ -520,6 +520,19 @@ void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
     }
 }
 
+void resolve_stmt_if(Stmt *stmt, Scope *scope) {
+    debug_assert(stmt->kind == STMT_IF);
+    ResolvedExpr cond = resolve_expr(stmt->if_stmt.cond, scope);
+
+    if (cond.type != builtin_symbols[TYPE_S32].type) fprintf(stderr, "If condition must evaluate to S32\n");
+    if (stmt->if_stmt.if_body.size > 0) {
+        resolve_stmt_block(stmt->if_stmt.if_body, scope);
+    }
+    if (stmt->if_stmt.else_body.size > 0) {
+        resolve_stmt_block(stmt->if_stmt.else_body, scope);
+    }
+}
+
 void resolve_stmt(Stmt *stmt, Scope *scope) {
     switch (stmt->kind) {
         case STMT_RETURN: {
@@ -542,6 +555,9 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
             break;
         case STMT_EXPR:
             resolve_expr(stmt->expr, scope);
+            break;
+        case STMT_IF:
+            resolve_stmt_if(stmt, scope);
             break;
         default:
             debug_assert(0);

@@ -94,7 +94,13 @@ Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields
 
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type) {
     Decl *result = push_array(arena, Decl, 1);
-    *result = (Decl){.kind = DECL_FUNC, .name = name, .func.params = params, .func.body = body, .func.return_type = return_type};
+    *result = (Decl){
+        .kind = DECL_FUNC, 
+        .name = name, 
+        .func.params = params, 
+        .func.body = body, 
+        .func.return_type = return_type
+    };
     return result;
 }
 
@@ -182,8 +188,8 @@ Expr *parse_leaf(Lexer *lexer) {
                 case TOKEN_DOT: {
                     // field access
                     parser_expect(lexer, &next, TOKEN_DOT);
-                    next = *parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
-                    String8 field_name = next.text;
+                    Token *next = parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
+                    String8 field_name = next->text;
                     result = make_expr_field(lexer->parser->arena, expr, field_name);
                     break;
                 }
@@ -565,7 +571,7 @@ TypeSyntax *parse_type_base(Lexer *lexer) {
     return make_type_syntax_name(lexer->parser->arena, next->text);
 }
 
-Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
+inline Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
     if (token->kind != expected) {
         print_parse_error(lexer, token, "Expected '%s'", token_kind_name(expected));
         return token;
