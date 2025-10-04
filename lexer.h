@@ -8,8 +8,8 @@ typedef enum TokenKind {
     // Literals. These need to ALWAYS be defined the start of the enum, because we have table of token literals,
     // that is defined using these enums values as designated initializers, which we use to then do linear search
     // over the table when we lex literals.
-    TOKEN_ARROW,
     TOKEN_PLUS,
+    TOKEN_ARROW,
     TOKEN_MINUS,
     TOKEN_MULT,
     TOKEN_DOT,
@@ -17,6 +17,8 @@ typedef enum TokenKind {
     TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_CURLY,
     TOKEN_RIGHT_CURLY,
+    TOKEN_LEFT_BRACKET,
+    TOKEN_RIGHT_BRACKET,
     TOKEN_SEMICOLON,
     TOKEN_COLON_COLON,
     TOKEN_COLON,
@@ -28,6 +30,7 @@ typedef enum TokenKind {
     TOKEN_GT_EQUAL,
     TOKEN_LT,
     TOKEN_GT,
+    TOKEN_AND,
 
     // Uhh misc idk
     TOKEN_END,
@@ -40,6 +43,7 @@ typedef enum TokenKind {
     TOKEN_KEYWORD_IF,
     TOKEN_KEYWORD_ELSE,
     TOKEN_KEYWORD_STRUCT,
+    TOKEN_KEYWORD_WHILE,
 
     TOKEN_INVALID,
 } TokenKind;

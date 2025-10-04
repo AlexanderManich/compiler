@@ -2,8 +2,8 @@
 #include "parser.h"
 #include "base/base_include.h"
 
-String8 to_operator(Token *token) {
-    return token->text;
+TokenKind to_operator(Token *token) {
+    return token->kind;
 }
 
 b32 is_binary_operator(Token *token) {
@@ -12,6 +12,7 @@ b32 is_binary_operator(Token *token) {
         case TOKEN_PLUS:
         case TOKEN_MULT:
         case TOKEN_GT:
+        case TOKEN_LT:
             return true;
         default:
             return false;
@@ -34,13 +35,23 @@ Expr *make_s32(Arena *arena, Token *token) {
     return result;
 }
 
-Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right) {
+Expr *make_expr_binary(Arena *arena, Expr *left, TokenKind operator, Expr *right) {
     Expr *result = push_array(arena, Expr, 1);
     *result = (Expr){ 
         .kind = EXPR_BINARY, 
         .binary.left = left, 
         .binary.op = operator, 
         .binary.right = right 
+    };
+    return result;
+}
+
+Expr *make_expr_unary(Arena *arena, TokenKind operator, Expr *operand) {
+    Expr *result = push_array(arena, Expr, 1);
+    *result = (Expr){
+        .kind = EXPR_UNARY,
+        .unary.op = operator,
+        .unary.expr = operand,
     };
     return result;
 }
@@ -137,6 +148,14 @@ Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_bod
     return result;
 }
 
+Stmt *make_stmt_while(Arena *arena, Expr *cond, StmtList body) {
+    Stmt *result = push_array(arena, Stmt, 1);
+    result->kind = STMT_WHILE;
+    result->while_stmt.cond = cond;
+    result->while_stmt.body = body;
+    return result;
+}
+
 Expr *make_expr_name(Arena *arena, String8 name) {
     Expr *expr = push_array(arena, Expr, 1);
     expr->kind = EXPR_NAME;
@@ -165,6 +184,21 @@ TypeSyntax *make_type_syntax_name(Arena *arena, String8 name) {
     TypeSyntax *result = push_array(arena, TypeSyntax, 1);
     result->kind = TYPE_SYNTAX_NAME;
     result->name = name;
+    return result;
+}
+
+TypeSyntax *make_type_syntax_ptr(Arena *arena, TypeSyntax *type) {
+    TypeSyntax *result = push_array(arena, TypeSyntax, 1);
+    result->kind = TYPE_SYNTAX_POINTER;
+    result->ptr.base = type;
+    return result;
+}
+
+TypeSyntax *make_type_syntax_array(Arena *arena, TypeSyntax *type, Expr *size_expr) {
+    TypeSyntax *result = push_array(arena, TypeSyntax, 1);
+    result->kind = TYPE_SYNTAX_ARRAY;
+    result->array.base = type;
+    result->array.size = size_expr;
     return result;
 }
 
@@ -225,6 +259,13 @@ Expr *parse_leaf(Lexer *lexer) {
             parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
             break;
         }
+        case TOKEN_AND: {
+            Token *operator = parser_expect(lexer, &next, TOKEN_AND);
+            Expr *operand = parse_leaf(lexer);
+
+            result = make_expr_unary(lexer->parser->arena, operator->kind, operand);
+            break;
+        };
         case TOKEN_INT: {
             parser_expect(lexer, &next, TOKEN_INT);
             result = make_s32(lexer->parser->arena, &next);
@@ -234,7 +275,7 @@ Expr *parse_leaf(Lexer *lexer) {
             fprintf(stderr, "Error: Unexpected token '%.*s'\n", str8_varg(next.text));
             exit(EXIT_FAILURE);
     }
-
+    
     return result;
 }
 
@@ -292,6 +333,7 @@ Stmt *parse_stmt(Lexer *lexer) {
 
     if (next->kind == TOKEN_KEYWORD_RETURN) return parse_stmt_return(lexer);
     if (next->kind == TOKEN_KEYWORD_IF)     return parse_stmt_if(lexer);
+    if (next->kind == TOKEN_KEYWORD_WHILE)  return parse_stmt_while(lexer);
 
     if (next->kind == TOKEN_NAME) {
         Token *lookahead = peek_token(lexer, 1);
@@ -361,7 +403,7 @@ FuncParam *parse_decl_param(Lexer *lexer) {
 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
 
-    TypeSyntax *param_type = parse_type_base(lexer); 
+    TypeSyntax *param_type = parse_type(lexer, 0); 
 
     return make_decl_param(lexer->parser->arena, param_name, param_type);
 }
@@ -408,7 +450,7 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     next = *peek_next_token(lexer);
     if (next.kind == TOKEN_ARROW) {
         parser_expect(lexer, &next, TOKEN_ARROW);
-        return_type = parse_type_base(lexer);
+        return_type = parse_type(lexer, 0);
     }
     parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
 
@@ -426,7 +468,7 @@ FieldSyntax *parse_aggregate_field(Lexer *lexer) {
 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
 
-    TypeSyntax *field_type = parse_type_base(lexer); 
+    TypeSyntax *field_type = parse_type(lexer, 0); 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return make_aggregate_field(lexer->parser->arena, field_name, field_type);
@@ -490,9 +532,7 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
     if (next.kind != TOKEN_COLON_COLON) {
         parser_expect(lexer, &next, TOKEN_COLON);
         next = *peek_next_token(lexer);
-        if (next.kind == TOKEN_NAME) {
-            var_type = parse_type_base(lexer);
-        }
+        var_type = parse_type(lexer, 0);
         parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
     } else {
         parser_expect(lexer, &next, TOKEN_COLON_COLON);
@@ -505,6 +545,19 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
     parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return var_decl;
+}
+
+Stmt *parse_stmt_while(Lexer *lexer) {
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_WHILE);
+    lexer->parser->context = CONTEXT_CONDITION;
+    Expr *cond = parse_expr(lexer, -1);
+    lexer->parser->context = CONTEXT_DEFAULT;
+
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
+    StmtList body = parse_stmts(lexer);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+
+    return make_stmt_while(lexer->parser->arena, cond, body);
 }
 
 Stmt *parse_stmt_assign(Lexer *lexer, Expr *lhs) {
@@ -566,9 +619,37 @@ Stmt *parse_stmt_return(Lexer *lexer) {
     return return_statement;
 }
 
-TypeSyntax *parse_type_base(Lexer *lexer) {
-    Token *next = parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
-    return make_type_syntax_name(lexer->parser->arena, next->text);
+TypeSyntax *parse_type(Lexer *lexer, TypeSyntax **type) {
+    Token next = *peek_next_token(lexer);
+    if (!type) {
+        type = push_array(lexer->parser->arena, TypeSyntax*, 1);
+    }
+    if (next.kind == TOKEN_NAME) {
+        Token *name = parser_expect(lexer, &next, TOKEN_NAME);
+        TypeSyntax *base_type = make_type_syntax_name(lexer->parser->arena, name->text);
+        *type = base_type;
+        return *type;
+    }
+    if (next.kind == TOKEN_MULT) {
+        parser_expect(lexer, &next, TOKEN_MULT);
+        TypeSyntax *ptr_type = make_type_syntax_ptr(lexer->parser->arena, *type);
+        *type = ptr_type;
+        parse_type(lexer, &(*type)->ptr.base);
+    }
+    if (next.kind == TOKEN_LEFT_BRACKET) {
+        parser_expect(lexer, &next, TOKEN_LEFT_BRACKET);
+        Expr *size_expr = {0};
+        next = *peek_next_token(lexer);
+        if (next.kind != TOKEN_RIGHT_BRACKET) {
+            size_expr = parse_expr(lexer, -1);
+        }
+        parser_expect(lexer, &next, TOKEN_RIGHT_BRACKET);
+        TypeSyntax *array_type = make_type_syntax_array(lexer->parser->arena, *type, size_expr);
+        *type = array_type;
+        parse_type(lexer, &(*type)->array.base);
+    }
+
+    return *type; 
 }
 
 inline Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected) {
@@ -681,6 +762,15 @@ void ast_print_stmt(Stmt *stmt, i32 depth) {
                     ast_print_stmt(stmt->if_stmt.else_body.items[i], depth + 2);
             }
             break;
+        case STMT_WHILE:
+            printf("while\n");
+            print_indent(depth + 1);
+            printf("cond:\n");
+            ast_print_expr(stmt->while_stmt.cond, depth + 2);
+            print_indent(depth + 1);
+            for (u64 i = 0; i < stmt->while_stmt.body.size; i++)
+                ast_print_stmt(stmt->while_stmt.body.items[i], depth + 2);
+            break;
         default:
             print_indent(depth);
             printf("unknown stmt kind %d\n", stmt->kind);
@@ -698,6 +788,19 @@ void ast_print_type_syntax(TypeSyntax *type_syntax, i32 depth) {
     switch (type_syntax->kind) {
         case TYPE_SYNTAX_NAME:
             printf("type (%.*s)\n", str8_varg(type_syntax->name));
+            break;
+        case TYPE_SYNTAX_POINTER:
+            printf("pointer to\n");
+            ast_print_type_syntax(type_syntax->ptr.base, depth + 1);
+            break;
+        case TYPE_SYNTAX_ARRAY:
+            printf("array of\n");
+            ast_print_type_syntax(type_syntax->array.base, depth + 1);
+            print_indent(depth + 1);
+            printf("size:\n");
+            if (type_syntax->array.size) {
+                ast_print_expr(type_syntax->array.size, depth + 2);
+            } 
             break;
         default:
             printf("unknown type syntax %d\n", type_syntax->kind);
@@ -751,9 +854,13 @@ void ast_print_expr(Expr *expr, i32 depth) {
             printf("int (%ld)\n", expr->int_value);
             break;
         case EXPR_BINARY:
-            printf("binary (%.*s)\n", str8_varg(expr->binary.op));
+            printf("binary (%s)\n", token_kind_name(expr->binary.op).str);
             ast_print_expr(expr->binary.left, depth + 1);
             ast_print_expr(expr->binary.right, depth + 1);
+            break;
+        case EXPR_UNARY:
+            printf("unary (%s)\n", token_kind_name(expr->unary.op).str);
+            ast_print_expr(expr->unary.expr, depth + 1);
             break;
         case EXPR_CALL:
             printf("call\n");

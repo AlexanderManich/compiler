@@ -67,6 +67,17 @@ Type *make_type_array(Type* elem_type, u64 size) {
     return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
 }
 
+Type *make_type_ptr(Type* base_type) {
+    // TODO: Make defines for ptr size and align
+    Type type = { 
+        .kind = TYPE_PTR, 
+        .size = 8,
+        .align = 8,
+        .ptr.base = base_type
+    };
+    return type_intern(&GLOBAL_TYPE_ARENA, &GLOBAL_TYPE_TABLE, &type);
+}
+
 Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
     Type *type = push_array(arena, Type, 1);
     type->kind = TYPE_INCOMPLETE;
@@ -105,6 +116,10 @@ Type *resolve_decl_func(Decl *decl, Scope *scope) {
 }
 
 i64 resolve_const_expr(Expr *expr, Scope *scope) {
+    // TODO: I dont know about this. Added it in the case of unspecified size of array, since expr * is 0 then.
+    if (!expr) {
+        return 0;
+    }
     ResolvedExpr result = resolve_expr(expr, scope);
     if (!result.is_const) {
         fprintf(stderr, "Expected a constant expression");
@@ -171,11 +186,8 @@ ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
     return (ResolvedExpr){0};
 }
 
-u64 eval_int_binary(u64 left_val, String8 op, u64 right_val) {
-    // TODO: Op should be an enum and not string!
-    if (str8_compare(op, str8_lit("+"))) {
-        return left_val + right_val;
-    }
+u64 eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
+    if (op == TOKEN_PLUS) return left_val + right_val;
 
     return 0;
 }
@@ -189,14 +201,28 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
         fprintf(stderr, "left operand of + must be of type s32");
     }
     if (left.type != right.type) {
-        fprintf(stderr, "Type mismatch - %.*s %.*s %.*s", 
-            str8_varg(name_of_type(left.type)), str8_varg(expr->binary.op), str8_varg(name_of_type(right.type)));
+        fprintf(stderr, "Type mismatch - %.*s %s %.*s", 
+            str8_varg(name_of_type(left.type)), token_kind_name(expr->binary.op).str, str8_varg(name_of_type(right.type)));
     }
     if (left.is_const && right.is_const) {
         u64 expr_result = eval_int_binary(left.value, expr->binary.op, right.value);
         return resolved_const(expr_result);
     } else {
         return resolved_rvalue(left.type);
+    }
+}
+
+ResolvedExpr resolve_expr_unary(Expr *expr, Scope *scope) {
+    debug_assert(expr->kind == EXPR_UNARY);
+    ResolvedExpr operand = resolve_expr(expr->unary.expr, scope);
+    Type *type = operand.type;
+    switch (expr->unary.op) {
+        case TOKEN_AND:
+            if (!operand.is_lvalue) eprintf("Attempted to take address of non-lvalue\n");
+            Type *ptr_type = make_type_ptr(type);
+            return resolved_rvalue(ptr_type);
+        default:
+            debug_assert(0);
     }
 }
 
@@ -261,6 +287,8 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
         case EXPR_INT: 
             // TODO: Built in types should be allocated in a static arena, not a locally scoped one
             return make_resolved_s32(expr->int_value);
+        case EXPR_UNARY:
+            return resolve_expr_unary(expr, scope);
         case EXPR_BINARY:
             return resolve_expr_binary(expr, scope);
         case EXPR_CALL:
@@ -270,8 +298,7 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
         case EXPR_FIELD:
             return resolve_expr_field(expr, scope);
         default:
-            // TODO: Make print_expr function
-            fprintf(stderr, "Failed at resolving expression: ");
+            eprintf("Failed at resolving expression: ");
             ast_print_expr(expr, 0);
             return (ResolvedExpr){0};
     }
@@ -339,10 +366,11 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
             return type_array;
         }
         case TYPE_SYNTAX_POINTER: {
-
+            Type *base_type = resolve_type_syntax(type_syntax->ptr.base, scope);
+            return make_type_ptr(base_type);
         }
         default:
-            fprintf(stderr, "Unknown type node kind: %d", type_syntax->kind);
+            fprintf(stderr, "Unknown type node kind: %d\n", type_syntax->kind);
             return (Type*){0};
     }
 }
@@ -457,7 +485,6 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     debug_assert(symbol->state == SYMBOL_RESOLVED);
     Decl *decl = symbol->decl;
     debug_assert(decl->kind == DECL_FUNC);
-
     for (u64 i = 0; i < decl->func.params.size; i++) {
         FuncParam *param = decl->func.params.items[i];
         Type* param_type = resolve_type_syntax(param->type, local_scope);
@@ -478,11 +505,13 @@ void resolve_stmt_decl(Decl *decl, Scope *scope) {
             }
             scope->expected_decl_type = var_type;
             Type *expr_type = resolve_expr(decl->var.expr, scope).type;
-            
+    
             if (var_type && var_type != expr_type) {
-                debug_assert(var_type->symbol && expr_type->symbol);
-                fprintf(stderr, "Expression type doesn't match declared type - Decl: %.*s, Expr: %.*s\n",
-                    str8_varg(var_type->symbol->name), str8_varg(expr_type->symbol->name));
+                printf("Expression type doesn't match declared type - Decl: ");
+                print_type(var_type);
+                printf(", Expr: ");
+                print_type(expr_type);
+                printf("\n");
                 return;
             }
                 
@@ -533,6 +562,16 @@ void resolve_stmt_if(Stmt *stmt, Scope *scope) {
     }
 }
 
+void resolve_stmt_while(Stmt *stmt, Scope *scope) {
+    debug_assert(stmt->kind == STMT_WHILE);
+    ResolvedExpr cond = resolve_expr(stmt->if_stmt.cond, scope);
+
+    if (cond.type != builtin_symbols[TYPE_S32].type) fprintf(stderr, "While condition must evaluate to S32\n");
+    if (stmt->while_stmt.body.size > 0) {
+        resolve_stmt_block(stmt->if_stmt.if_body, scope);
+    }
+}
+
 void resolve_stmt(Stmt *stmt, Scope *scope) {
     switch (stmt->kind) {
         case STMT_RETURN: {
@@ -558,6 +597,9 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
             break;
         case STMT_IF:
             resolve_stmt_if(stmt, scope);
+            break;
+        case STMT_WHILE:
+            resolve_stmt_while(stmt, scope);
             break;
         default:
             debug_assert(0);
@@ -680,6 +722,9 @@ b32 type_equals(Type *a, Type *b) {
                 if (a->function.params[i] != b->function.params[i]) return false;
             }
             return true;
+        case TYPE_PTR:
+            if (a->ptr.base == b->ptr.base) return true;
+            return false;
         default:
             return false;
     }
@@ -711,5 +756,45 @@ void symbol_print_decls(SymbolTable *symbols) {
                 symbol_print_decls(symbols->child[i]);
             }
         }
+    }
+}
+
+void print_type(Type *type) {
+    if (!type) {
+        printf("<null>");
+        return;
+    }
+    switch (type->kind) {
+        case TYPE_VOID:
+        case TYPE_S32:
+            printf("%.*s", str8_varg(type_kind_name(type->kind)));
+            break;
+        case TYPE_PTR:
+            printf("*");
+            print_type(type->ptr.base);
+            break;
+        case TYPE_ARRAY:
+            printf("[%ld]", type->array.size);
+            print_type(type->array.base);
+            break;
+        case TYPE_FUNCTION:
+            printf("(");
+            for (u64 i = 0; i < type->function.param_count; i++) {
+                print_type(type->function.params[i]);
+                if (i + 1 < type->function.param_count) printf(", ");
+            }
+            printf(") -> ");
+            print_type(type->function.return_type);
+            break;
+        case TYPE_STRUCT:
+        case TYPE_UNION:
+            if (type->symbol)
+                printf("%.*s", str8_varg(type->symbol->name));
+            else
+                printf("<anon struct/union>");
+            break;
+        default:
+            printf("<unknown type>");
+            break;
     }
 }

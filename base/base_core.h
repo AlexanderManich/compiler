@@ -9,6 +9,8 @@
 #endif // SLOW
 #define debug_assert(expression) ((expression) ? (void)0 : __builtin_trap())
 
+#define eprintf(...) fprintf(stderr, __VA_ARGS__)
+
 typedef int8_t   i8;
 typedef int16_t  i16;
 typedef int32_t  i32;

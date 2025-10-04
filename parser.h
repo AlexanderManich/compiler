@@ -36,6 +36,7 @@ typedef enum ExprKind {
     EXPR_INT,
     EXPR_CALL,
     EXPR_BINARY,
+    EXPR_UNARY,
     EXPR_FIELD,
     EXPR_COMPOUND,
 } ExprKind;
@@ -45,8 +46,8 @@ struct Expr {
     union {
         String8 name;
         i64 int_value;
-        struct { Expr *left; Expr *right; String8 op; } binary;
-        struct { Expr *expr; String8 op; } unary;
+        struct { Expr *left; Expr *right; TokenKind op; } binary;
+        struct { Expr *expr; TokenKind op; } unary;
         struct { Expr *expr; ExprList params; } call;
         struct { Expr *expr; String8 name; } field;
         // TODO: Support designated initialization 
@@ -119,6 +120,7 @@ typedef enum StmtKind {
     STMT_ASSIGN,
     STMT_EXPR,
     STMT_DECL,
+    STMT_WHILE,
 } StmtKind;
 
 struct Stmt {
@@ -129,6 +131,7 @@ struct Stmt {
         StmtList block;
         struct  { Expr *lhs; Expr *rhs; } assign_stmt;
         struct { Expr *cond; StmtList if_body; StmtList else_body; } if_stmt;
+        struct { Expr *cond; StmtList body; } while_stmt;
     };
 };
 
@@ -151,14 +154,16 @@ struct TypeSyntax {
 };
 
 // Operator parsing helpers
-String8 to_operator(Token *token);
+TokenKind to_operator(Token *token);
 b32 is_binary_operator(Token *token);
 i32 get_precedence_from_kind(TokenKind kind);
 
 // Make ASTNodes
 Expr *make_s32(Arena *arena, Token *token); 
-Expr *make_expr_binary(Arena *arena, Expr *left, String8 operator, Expr *right);
+Expr *make_expr_binary(Arena *arena, Expr *left, TokenKind operator, Expr *right);
+Expr *make_expr_unary(Arena *arena, TokenKind operator, Expr *operand);
 Stmt *make_stmt_return(Arena *arena, Expr *expr);
+Stmt *make_stmt_while(Arena *arena, Expr *cond, StmtList body);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
 FieldSyntax *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
@@ -198,8 +203,9 @@ Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
 Stmt *parse_stmt_expr(Lexer *lexer, Expr *expr);
 Decl *parse_decl_var(Lexer *lexer, String8 name);
 Stmt *parse_stmt_assign(Lexer *lexer, Expr *lhs);
+Stmt *parse_stmt_while(Lexer *lexer);
 
-TypeSyntax *parse_type_base(Lexer *lexer);
+TypeSyntax *parse_type(Lexer *lexer, TypeSyntax **type);
 
 // Keywords parsing
 Stmt *parse_stmt_if(Lexer *lexer);

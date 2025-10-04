@@ -7,87 +7,65 @@
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 // Since we are using designated initializers we need to make sure this is true in the token kind enum.
 TokenLiteral token_literals[] = {
-    [TOKEN_LEFT_PAREN]  = {.symbol = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN,  .precedence = 150},
-    [TOKEN_RIGHT_PAREN] = {.symbol = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN, .precedence = 150},
-    [TOKEN_LEFT_CURLY]  = {.symbol = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY,  .precedence = -1},
-    [TOKEN_RIGHT_CURLY] = {.symbol = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY, .precedence = -1},
-    [TOKEN_SEMICOLON]   = {.symbol = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON,   .precedence = -1},
-    [TOKEN_COLON_COLON] = {.symbol = str8_lit_comp("::"), .kind = TOKEN_COLON_COLON, .precedence = -1},
-    [TOKEN_COLON]       = {.symbol = str8_lit_comp(":"),  .kind = TOKEN_COLON,       .precedence = -1},
-    [TOKEN_ARROW]       = {.symbol = str8_lit_comp("->"), .kind = TOKEN_ARROW,       .precedence = -1},
-    [TOKEN_COMMA]       = {.symbol = str8_lit_comp(","),  .kind = TOKEN_COMMA,       .precedence = 0},
-    [TOKEN_EQUAL_EQUAL] = {.symbol = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL, .precedence = 90},
-    [TOKEN_EQUAL]       = {.symbol = str8_lit_comp("="),  .kind = TOKEN_EQUAL,       .precedence = 10},
-    [TOKEN_EXCLAMATION] = {.symbol = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION, .precedence = 140},
-    [TOKEN_LT_EQUAL]    = {.symbol = str8_lit_comp("<="), .kind = TOKEN_LT_EQUAL,    .precedence = 80},
-    [TOKEN_GT_EQUAL]    = {.symbol = str8_lit_comp(">="), .kind = TOKEN_GT_EQUAL,    .precedence = 80},
-    [TOKEN_LT]          = {.symbol = str8_lit_comp("<"),  .kind = TOKEN_LT,          .precedence = 80},
-    [TOKEN_GT]          = {.symbol = str8_lit_comp(">"),  .kind = TOKEN_GT,          .precedence = 80},
-    [TOKEN_PLUS]        = {.symbol = str8_lit_comp("+"),  .kind = TOKEN_PLUS,        .precedence = 120},
-    [TOKEN_MINUS]       = {.symbol = str8_lit_comp("-"),  .kind = TOKEN_MINUS,       .precedence = 120},
-    [TOKEN_MULT]        = {.symbol = str8_lit_comp("*"),  .kind = TOKEN_MULT,        .precedence = 130},
-    [TOKEN_DOT]         = {.symbol = str8_lit_comp("."),  .kind = TOKEN_DOT,         .precedence = 150},
+    // Precendence shouldn't be here. It should be defined on operators
+    [TOKEN_LEFT_PAREN]    = {.symbol = str8_lit_comp("("),  .kind = TOKEN_LEFT_PAREN,    .precedence = 150},
+    [TOKEN_RIGHT_PAREN]   = {.symbol = str8_lit_comp(")"),  .kind = TOKEN_RIGHT_PAREN,   .precedence = 150},
+    [TOKEN_LEFT_CURLY]    = {.symbol = str8_lit_comp("{"),  .kind = TOKEN_LEFT_CURLY,    .precedence = -1},
+    [TOKEN_RIGHT_CURLY]   = {.symbol = str8_lit_comp("}"),  .kind = TOKEN_RIGHT_CURLY,   .precedence = -1},
+    [TOKEN_LEFT_BRACKET]  = {.symbol = str8_lit_comp("["),  .kind = TOKEN_LEFT_BRACKET,  .precedence = 150},
+    [TOKEN_RIGHT_BRACKET] = {.symbol = str8_lit_comp("]"),  .kind = TOKEN_RIGHT_BRACKET, .precedence = 150},
+    [TOKEN_SEMICOLON]     = {.symbol = str8_lit_comp(";"),  .kind = TOKEN_SEMICOLON,     .precedence = -1},
+    [TOKEN_COLON_COLON]   = {.symbol = str8_lit_comp("::"), .kind = TOKEN_COLON_COLON,   .precedence = -1},
+    [TOKEN_COLON]         = {.symbol = str8_lit_comp(":"),  .kind = TOKEN_COLON,         .precedence = -1},
+    [TOKEN_ARROW]         = {.symbol = str8_lit_comp("->"), .kind = TOKEN_ARROW,         .precedence = -1},
+    [TOKEN_COMMA]         = {.symbol = str8_lit_comp(","),  .kind = TOKEN_COMMA,         .precedence = 0},
+    [TOKEN_EQUAL_EQUAL]   = {.symbol = str8_lit_comp("=="), .kind = TOKEN_EQUAL_EQUAL,   .precedence = 90},
+    [TOKEN_EQUAL]         = {.symbol = str8_lit_comp("="),  .kind = TOKEN_EQUAL,         .precedence = 10},
+    [TOKEN_EXCLAMATION]   = {.symbol = str8_lit_comp("!"),  .kind = TOKEN_EXCLAMATION,   .precedence = 140},
+    [TOKEN_LT_EQUAL]      = {.symbol = str8_lit_comp("<="), .kind = TOKEN_LT_EQUAL,      .precedence = 80},
+    [TOKEN_GT_EQUAL]      = {.symbol = str8_lit_comp(">="), .kind = TOKEN_GT_EQUAL,      .precedence = 80},
+    [TOKEN_LT]            = {.symbol = str8_lit_comp("<"),  .kind = TOKEN_LT,            .precedence = 80},
+    [TOKEN_GT]            = {.symbol = str8_lit_comp(">"),  .kind = TOKEN_GT,            .precedence = 80},
+    [TOKEN_PLUS]          = {.symbol = str8_lit_comp("+"),  .kind = TOKEN_PLUS,          .precedence = 120},
+    [TOKEN_MINUS]         = {.symbol = str8_lit_comp("-"),  .kind = TOKEN_MINUS,         .precedence = 120},
+    [TOKEN_MULT]          = {.symbol = str8_lit_comp("*"),  .kind = TOKEN_MULT,          .precedence = 130},
+    [TOKEN_DOT]           = {.symbol = str8_lit_comp("."),  .kind = TOKEN_DOT,           .precedence = 150},
+    [TOKEN_AND]           = {.symbol = str8_lit_comp("&"),  .kind = TOKEN_AND,           .precedence = 120},
 };
 
 String8 token_kind_name(TokenKind kind) {
     switch (kind) {
-        case TOKEN_END:
-            return str8_lit("end of input");
-        case TOKEN_NAME:
-            return str8_lit("name");
-        case TOKEN_INT:
-            return str8_lit("integer");
-        case TOKEN_STRING:
-            return str8_lit("string");
-        case TOKEN_PLUS:
-            return str8_lit("plus");
-        case TOKEN_MINUS:
-            return str8_lit("minus");
-        case TOKEN_MULT:
-            return str8_lit("mult");
-        case TOKEN_LEFT_PAREN:
-            return str8_lit("left parenthesis");
-        case TOKEN_RIGHT_PAREN:
-            return str8_lit("right parenthesis");
-        case TOKEN_LEFT_CURLY:
-            return str8_lit("left curly bracket");
-        case TOKEN_RIGHT_CURLY:
-            return str8_lit("right curly bracket");
-        case TOKEN_SEMICOLON:
-            return str8_lit("semicolon");
-        case TOKEN_COLON_COLON:
-            return str8_lit("colon colon");
-        case TOKEN_COLON:
-            return str8_lit("colon");
-        case TOKEN_ARROW:
-            return str8_lit("arrow");
-        case TOKEN_COMMA:
-            return str8_lit("comma");
-        case TOKEN_EQUAL:
-            return str8_lit("equal");
-        case TOKEN_EQUAL_EQUAL:
-            return str8_lit("equal equal");
-        case TOKEN_EXCLAMATION:
-            return str8_lit("exclamation mark");
-        case TOKEN_LT_EQUAL:
-            return str8_lit("less than equal");
-        case TOKEN_GT_EQUAL:
-            return str8_lit("greater than equal");
-        case TOKEN_LT:
-            return str8_lit("less than");
-        case TOKEN_GT:
-            return str8_lit("greater than");
-        case TOKEN_DOT:
-            return str8_lit("dot");
+        case TOKEN_END:         return str8_lit("end of input");
+        case TOKEN_NAME:        return str8_lit("name");
+        case TOKEN_INT:         return str8_lit("integer");
+        case TOKEN_STRING:      return str8_lit("string");
+        case TOKEN_PLUS:        return str8_lit("plus");
+        case TOKEN_MINUS:       return str8_lit("minus");
+        case TOKEN_MULT:        return str8_lit("mult");
+        case TOKEN_LEFT_PAREN:  return str8_lit("left parenthesis");
+        case TOKEN_RIGHT_PAREN: return str8_lit("right parenthesis");
+        case TOKEN_LEFT_CURLY:  return str8_lit("left curly bracket");
+        case TOKEN_RIGHT_CURLY: return str8_lit("right curly bracket");
+        case TOKEN_SEMICOLON:   return str8_lit("semicolon");
+        case TOKEN_COLON_COLON: return str8_lit("colon colon");
+        case TOKEN_COLON:       return str8_lit("colon");
+        case TOKEN_ARROW:       return str8_lit("arrow");
+        case TOKEN_COMMA:       return str8_lit("comma");
+        case TOKEN_EQUAL:       return str8_lit("equal");
+        case TOKEN_EQUAL_EQUAL: return str8_lit("equal equal");
+        case TOKEN_EXCLAMATION: return str8_lit("exclamation mark");
+        case TOKEN_LT_EQUAL:    return str8_lit("less than equal");
+        case TOKEN_GT_EQUAL:    return str8_lit("greater than equal");
+        case TOKEN_LT:          return str8_lit("less than");
+        case TOKEN_GT:          return str8_lit("greater than");
+        case TOKEN_DOT:         return str8_lit("dot");
+        case TOKEN_AND:         return token_literals[TOKEN_AND].symbol;
 
         // Keywords
-        case TOKEN_KEYWORD_RETURN:
-            return str8_lit("return keyword");
-        case TOKEN_KEYWORD_IF:
-            return str8_lit("if keyword");
+        case TOKEN_KEYWORD_RETURN: return str8_lit("return keyword");
+        case TOKEN_KEYWORD_IF:     return str8_lit("if keyword");
 
-        case TOKEN_INVALID:
-            return str8_lit("invalid token");
+        case TOKEN_INVALID:        return str8_lit("invalid token");
         default:
             fprintf(stderr, "ERROR: No name defined for token kind: %d\n", kind);
     }
@@ -286,6 +264,7 @@ TokenKind is_keyword(Token *token) {
     if (str8_compare(token->text, str8_lit("if")))     return TOKEN_KEYWORD_IF; 
     if (str8_compare(token->text, str8_lit("struct"))) return TOKEN_KEYWORD_STRUCT; 
     if (str8_compare(token->text, str8_lit("else")))   return TOKEN_KEYWORD_ELSE; 
+    if (str8_compare(token->text, str8_lit("while")))  return TOKEN_KEYWORD_WHILE; 
 
     // TODO: Fix. TokenKind 0 is TOKEN_PLUS which doesn't make sense to return here
     return (TokenKind)0;

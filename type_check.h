@@ -159,3 +159,4 @@ Type *type_intern(Arena *arena, TypeSet **set, Type *key);
 b32 fields_have_duplicates(FieldList fields);
 
 void symbol_print_decls(SymbolTable *symbols);
+void print_type(Type *type);
