@@ -723,10 +723,10 @@ b32 type_equals(Type *a, Type *b) {
             }
             return true;
         case TYPE_PTR:
-            if (a->ptr.base == b->ptr.base) return true;
-            return false;
+            return type_equals(a->ptr.base, b->ptr.base);
         default:
-            return false;
+        // If we end up in this case, the type should be interned, and we can do pointer comparison
+            return a == b;
     }
 }
 
