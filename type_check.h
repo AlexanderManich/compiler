@@ -122,6 +122,8 @@ static TypeSet *GLOBAL_TYPE_TABLE = {0};
 TypeKind type_kind_from_str8(String8 string);
 String8 str8_from_type_kind(TypeKind kind);
 String8 name_of_type(Type *type);
+String8 expr_kind_name(ExprKind kind);
+String8 stmt_kind_name(StmtKind kind);
 
 b32 type_equals(Type* a, Type* b);
 

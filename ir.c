@@ -1,4 +1,5 @@
 #include "ir.h"
+#include "type_check.h"
 #include "parser.h"
 
 Instruction ir_code[IR_MAX];
@@ -31,6 +32,7 @@ i32 ir_gen_expr(Expr *expr) {
     }
     
     default:
+        eprintf("Tried to generate IR for unimplemented expression kind %.*s", str8_varg(expr_kind_name(expr->kind)));
         return -1; 
     }
 }
@@ -42,8 +44,14 @@ void ir_gen_statement(Stmt *stmt) {
         emit(IR_RET, reg, 0, 0, 0);
         break;
     }
+    case STMT_DECL: {
+        Decl *decl = stmt->decl;
+        i32 reg = ir_gen_expr(decl->var.expr);
+        break;
+    }
     
     default:
+        eprintf("Tried to generate IR for unimplemented statement kind %.*s", str8_varg(stmt_kind_name(stmt->kind)));
         break;
     }
 }

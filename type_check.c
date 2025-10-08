@@ -20,6 +20,35 @@ String8 type_kind_name(TypeKind kind) {
     return (String8){0};
 }
 
+String8 expr_kind_name(ExprKind kind) {
+    switch(kind) {
+        case EXPR_NAME:     return str8_lit("expr_name");
+        case EXPR_UNARY:    return str8_lit("expr_unary");
+        case EXPR_BINARY:   return str8_lit("expr_binary");
+        case EXPR_COMPOUND: return str8_lit("expr_compound");
+        case EXPR_INT:      return str8_lit("expr_int");
+        case EXPR_FIELD:    return str8_lit("expr_field");
+        case EXPR_CALL:     return str8_lit("expr_call");
+        default: fprintf(stderr, "No name defined for ExprKind %d\n", kind);
+    }
+    return (String8){0};
+}
+
+String8 stmt_kind_name(StmtKind kind) {
+    switch(kind) {
+        case STMT_BLOCK:  return str8_lit("stmt_block");
+        case STMT_DECL:   return str8_lit("stmt_decl");
+        case STMT_RETURN: return str8_lit("stmt_return");
+        case STMT_EXPR:   return str8_lit("stmt_expr");
+        case STMT_WHILE:  return str8_lit("stmt_while");
+        case STMT_ASSIGN: return str8_lit("stmt_assign");
+        case STMT_IF:     return str8_lit("stmt_if");
+        case STMT_NONE:   return str8_lit("stmt_none");
+        default: fprintf(stderr, "No name defined for StmtKind %d\n", kind);
+    }
+    return (String8){0};
+}
+
 String8 name_of_type(Type *type) {
     debug_assert(type->symbol);
     return type->symbol->name;

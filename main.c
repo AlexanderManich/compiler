@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
-    ast_print(program_ast, 0);
+    // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
     // symbol_print_decls(global_scope.symbols);
@@ -101,8 +101,8 @@ int main(int argc, char **argv) {
     if (!output_file_path.str) {
         output_file_path = str8_lit("build/main");
     }
-    // codegen_ast(&global_arena, program_ast, output_file_path);
-    // asm_compile_and_link(&global_arena, output_file_path);
+    codegen_ast(&global_arena, program_ast, output_file_path);
+    asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
