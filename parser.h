@@ -113,6 +113,7 @@ struct DeclList {
     u64 capacity;
 };
 typedef enum StmtKind {
+    // What is the use for STMT_NONE?
     STMT_NONE,
     STMT_BLOCK,
     STMT_RETURN,
