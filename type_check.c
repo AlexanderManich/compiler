@@ -247,10 +247,7 @@ ResolvedExpr resolve_expr_unary(Expr *expr, Scope *scope) {
     Type *type = operand.type;
     switch (expr->unary.op) {
         case TOKEN_AND:
-            if (!operand.is_lvalue) {
-                eprintf("Attempted to take address of non-lvalue\n");
-                debug_assert(0);
-            }
+            if (!operand.is_lvalue) eprintf("Attempted to take address of non-lvalue\n");
             Type *ptr_type = make_type_ptr(type);
             return resolved_rvalue(ptr_type);
         default:
@@ -261,19 +258,19 @@ ResolvedExpr resolve_expr_unary(Expr *expr, Scope *scope) {
 ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_COMPOUND);
     if (!scope->expected_decl_type && !expr->compound_literal.type) {
-        eprintf("Compound literal used in initialization with no explicit type\n");
+        fprintf(stderr, "Compound literal used in initialization with no explicit type\n");
         debug_assert(0);
     }
     Type *type = {0};
     if (expr->compound_literal.type) {
-        type = resolve_type_syntax(expr->compound_literal.type->syntax, scope);
+        type = resolve_type_syntax(expr->compound_literal.type, scope);
     } else {
         type = scope->expected_decl_type;
     }
     complete_type(type, scope);
 
     if (type->kind != TYPE_STRUCT && type->kind != TYPE_UNION && type->kind != TYPE_ARRAY) {
-        eprintf("Attempted to initialize non aggregate or non array type with compound literal\n");
+        fprintf(stderr, "Attempted to initialize non aggregate or array type with compound literal\n");
         debug_assert(0);
     }
 
@@ -301,9 +298,9 @@ ResolvedExpr resolve_expr_field(Expr *expr, Scope *scope) {
         return (ResolvedExpr){0};
     }
     for (u64 i = 0; i < accessee_type->aggregate.fields.size; i++) {
-        Field *field = accessee_type->aggregate.fields.items[i];
-        if (str8_compare(field->name, expr->field.name)) {
-            return accessee.is_lvalue ? resolved_lvalue(field->type->type) : resolved_rvalue(field->type->type);
+        Field field = accessee_type->aggregate.fields.items[i];
+        if (str8_compare(field.name, expr->field.name)) {
+            return accessee.is_lvalue ? resolved_lvalue(field.type) : resolved_rvalue(field.type);
         }
     }
 
@@ -460,8 +457,8 @@ void complete_struct_type(Type *type, FieldList fields) {
     type->kind = TYPE_STRUCT;
     for (u64 i = 0; i < fields.size; i++) {
         // TODO: Add padding
-        type->size = fields.items[i]->type->type->size + type->size;
-        type->align = max(fields.items[i]->type->type->align, type->align);
+        type->size = fields.items[i].type->size + type->size;
+        type->align = max(fields.items[i].type->align, type->align);
     }
     type->aggregate.fields = fields;
 }
@@ -482,13 +479,14 @@ void complete_type(Type *type, Scope *scope) {
     type->kind = TYPE_COMPLETING;
     Decl *decl = type->symbol->decl;
     debug_assert(decl->kind == DECL_STRUCT || decl->kind == DECL_UNION);
-    FieldList fields = decl->aggregate.fields;
+    FieldList fields = {0};
 
-    for (u64 i = 0; i < fields.size; i++) {
-        Field *field = fields.items[i];
-        Type *field_type = resolve_type_syntax(field->type->syntax, scope);
+    for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
+        FieldSyntax *field_syntax = decl->aggregate.fields.items[i];
+        Type *field_type = resolve_type_syntax(field_syntax->type, scope);
         complete_type(field_type, scope);
-        field->type->type = field_type;
+        Field field = { .name = field_syntax->name, .type = field_type };
+        da_append(scope->arena, fields, field);
     }
 
     String8 type_name = type->symbol->name;
@@ -564,18 +562,18 @@ void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
     ResolvedExpr rhs = resolve_expr(stmt->assign_stmt.rhs, scope);
 
     if (lhs.type != rhs.type) {
-        eprintf("Trying to assign rhs of type %.*s, to lhs of type %.*s\n", 
+        fprintf(stderr, "Trying to assign rhs of type %.*s, to lhs of type %.*s\n", 
             str8_varg(type_kind_name(rhs.type->kind)), str8_varg(type_kind_name(lhs.type->kind)));
         return;
     }
 
     if (!lhs.is_lvalue) {
-        eprintf("Trying to assign to non lvalue lhs\n");
+        fprintf(stderr, "Trying to assign to non lvalue lhs\n");
         return;
     }
 
     if (lhs.is_const) {
-        eprintf("Lhs is const and cannot be modified\n");
+        fprintf(stderr, "Lhs is const and cannot be modified\n");
         return;
     }
 }
@@ -597,7 +595,7 @@ void resolve_stmt_while(Stmt *stmt, Scope *scope) {
     debug_assert(stmt->kind == STMT_WHILE);
     ResolvedExpr cond = resolve_expr(stmt->if_stmt.cond, scope);
 
-    if (cond.type != builtin_symbols[TYPE_S32].type) eprintf("While condition must evaluate to S32\n");
+    if (cond.type != builtin_symbols[TYPE_S32].type) fprintf(stderr, "While condition must evaluate to S32\n");
     if (stmt->while_stmt.body.size > 0) {
         resolve_stmt_block(stmt->if_stmt.if_body, scope);
     }
@@ -610,7 +608,7 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
             if (stmt->expr) {
                 ResolvedExpr expr = resolve_expr(stmt->expr, scope);
                 if (expr.type != scope->expected_return_type) {
-                    eprintf("Mismatched return type. Expected %.*s got %.*s",
+                    fprintf(stderr, "Mismatched return type. Expected %.*s got %.*s",
                         str8_varg(type_kind_name(scope->expected_return_type->kind)), str8_varg(type_kind_name(expr.type->kind)));
                     return;
                 }
@@ -669,7 +667,7 @@ void resolve_symbols(SymbolTable *symbols, Scope *scope) {
 b32 fields_have_duplicates(FieldList fields) {
     for (u64 i = 0; i < fields.size; i++) {
         for (u64 j = i+1; j < fields.size; j++) {
-            if (str8_compare(fields.items[i]->name, fields.items[j]->name)) return true;
+            if (str8_compare(fields.items[i].name, fields.items[j].name)) return true;
         }
     }
     return false;

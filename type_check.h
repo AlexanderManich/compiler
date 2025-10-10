@@ -1,6 +1,55 @@
 #pragma once 
 #include "parser.h"
 
+typedef enum TypeKind {
+    TYPE_VOID,
+    TYPE_S8,
+    TYPE_S16,
+    TYPE_S32,
+    TYPE_S64,
+    TYPE_NUMERICAL_END,
+    TYPE_INCOMPLETE,
+    TYPE_COMPLETING,
+    TYPE_FUNCTION,
+    TYPE_STRUCT,
+    TYPE_UNION,
+    TYPE_ENUM,
+    TYPE_ARRAY,
+    TYPE_PTR,
+} TypeKind;
+
+typedef struct Symbol Symbol;
+typedef struct Field Field;
+
+typedef struct FieldList FieldList;
+struct FieldList {
+    Field *items;
+    u64 size;
+    u64 capacity;
+};
+
+typedef struct Type Type;
+struct Type {
+    TypeKind kind;
+    u64 size;
+    u64 align;
+
+    Symbol *symbol;
+    union {
+        struct { Type* return_type; Type** params; u64 param_count; } function;
+        struct { FieldList fields; } aggregate;
+        struct { Type* base; u64 size; } array;
+        struct { Type* base; } ptr;
+    };
+};
+
+typedef struct Field Field;
+struct Field {
+    String8 name;
+    Type *type;
+};
+
+
 typedef enum SymbolKind {
     SYMBOL_NONE,
     SYMBOL_VAR,
@@ -16,7 +65,6 @@ typedef enum SymbolState {
     SYMBOL_RESOLVED,
 } SymbolState;
 
-typedef struct Symbol Symbol;
 struct Symbol {
     String8 name;
     SymbolKind kind;

@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "ir.h"
 
 void codegen_ast(Arena *arena, DeclList root, String8 output_path) {
     String8 stripped_output_path = str8_strip_ext(output_path);
@@ -18,22 +19,14 @@ void codegen_ast(Arena *arena, DeclList root, String8 output_path) {
     }
 
     fprintf(asm_output_handle, "%s", asm_init_string);
+
     for (u64 i = 0; i < root.size; i++) {
         Decl *decl = root.items[i];
         if (decl->kind == DECL_FUNC) {
-            ;
             fprintf(asm_output_handle, "%.*s:\n", str8_varg(decl->name));
-            fprintf(asm_output_handle, "    pushq %%rbp\n");
-            fprintf(asm_output_handle, "    movq  %%rsp, %%rbp\n");
-            fprintf(asm_output_handle, "    popq  %%rbp\n");
-            
-            ParamList params = decl->func.params;
-            for (u64 param_idx = 0; param_idx < params.size; param_idx++) {
-                FuncParam *param = params.items[param_idx];
-                
-            }
-
-            fprintf(asm_output_handle, "    ret\n");
+            fprintf(asm_output_handle, "    pushq %%rbp\n    movq %%rsp, %%rbp\n");
+            ir_gen_function(decl);
+            codegen_ir(asm_output_handle); 
         }
     }
 
@@ -52,4 +45,25 @@ void asm_compile_and_link(Arena *arena, String8 out_flag) {
 
     system(asm_command);
     system(link_command);
+}
+
+void codegen_ir(FILE *out) {
+    // TODO: Map virtual registers to real registers
+    const char *reg_names[] = {"%rax", "%rbx", "%rcx", "%rdx"};
+    for (int i = 0; i < ir_count; ++i) {
+        Instruction *inst = &ir_code[i];
+        switch (inst->op) {
+            case IR_LOAD_CONST:
+                fprintf(out, "    movq $%d, %s\n", inst->imm, reg_names[inst->dest]);
+                break;
+            case IR_MOV:
+                fprintf(out, "    movq %s, %s\n", reg_names[inst->src1], reg_names[inst->dest]);
+                break;
+            case IR_RET:
+                fprintf(out, "    movq %s, %%rax\n", reg_names[inst->src1]);
+                fprintf(out, "    popq %%rbp\n");
+                fprintf(out, "    ret\n");
+                break;
+        }
+    }
 }

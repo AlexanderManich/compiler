@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lexer.h"
-#include "type.h"
 #include "type_check.h"
 #include "parser.h"
-#include "backend.h"
+#include "code_gen.h"
+#include "ir.h"
 #include "base/base_include.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
@@ -88,14 +88,14 @@ int main(int argc, char **argv) {
     // }
     
     DeclList program_ast = parse_program(&lexer);
-
+    
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
     // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
-    symbol_print_decls(global_scope.symbols);
+    // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
 
     if (!output_file_path.str) {
@@ -111,4 +111,5 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "type_check.c"
-#include "backend.c"
+#include "ir.c"
+#include "code_gen.c"
