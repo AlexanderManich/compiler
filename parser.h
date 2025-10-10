@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "lexer.h"
+#include "type.h"
 #include "base/base_arena.h"
 
 typedef enum ParserContext {
@@ -18,11 +19,6 @@ struct Parser {
     String8 file;
     ParserContext context;
 };
-
-typedef struct Expr Expr;
-typedef struct TypeSyntax TypeSyntax;
-typedef struct StmtList StmtList;
-typedef struct Stmt Stmt;
 
 typedef struct ExprList ExprList;
 struct ExprList {
@@ -41,6 +37,7 @@ typedef enum ExprKind {
     EXPR_COMPOUND,
 } ExprKind;
 
+typedef struct Expr Expr;
 struct Expr {
     ExprKind kind;
     union {
@@ -51,10 +48,12 @@ struct Expr {
         struct { Expr *expr; ExprList params; } call;
         struct { Expr *expr; String8 name; } field;
         // TODO: Support designated initialization 
-        struct { ExprList fields; TypeSyntax *type; } compound_literal;
+        struct { ExprList fields; TypeInfo *type; } compound_literal;
     };
 };
 
+typedef struct Stmt Stmt;
+typedef struct StmtList StmtList;
 struct StmtList {
     Stmt **items;
     u64 size;
@@ -74,18 +73,6 @@ struct ParamList {
     u64 capacity;
 };
 
-typedef struct FieldSyntax FieldSyntax;
-struct FieldSyntax {
-    String8 name;
-    TypeSyntax *type;
-};
-
-typedef struct FieldSyntaxList FieldSyntaxList;
-struct FieldSyntaxList {
-    FieldSyntax **items;
-    u64 size;
-    u64 capacity;
-};
 
 typedef enum DeclKind {
     DECL_VAR,
@@ -102,7 +89,7 @@ struct Decl {
     union {
         struct { TypeSyntax *type; Expr *expr; } var;
         struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
-        struct { FieldSyntaxList fields; } aggregate;
+        struct { FieldList fields; } aggregate;
     };
 };
 
@@ -136,24 +123,6 @@ struct Stmt {
     };
 };
 
-typedef enum TypeSyntaxKind {
-    TYPE_SYNTAX_NAME,
-    TYPE_SYNTAX_FUNCTION, 
-    TYPE_SYNTAX_POINTER,
-    TYPE_SYNTAX_ARRAY,
-} TypeSyntaxKind;
-
-struct TypeSyntax {
-    TypeSyntaxKind kind;
-
-    union {
-        String8 name;
-        struct { TypeSyntax *return_type; TypeSyntax **params; u64 param_count; } function;
-        struct { TypeSyntax *base; Expr *size; } array;
-        struct { TypeSyntax *base; } ptr;
-    };
-};
-
 // Operator parsing helpers
 TokenKind to_operator(Token *token);
 b32 is_binary_operator(Token *token);
@@ -166,13 +135,14 @@ Expr *make_expr_unary(Arena *arena, TokenKind operator, Expr *operand);
 Stmt *make_stmt_return(Arena *arena, Expr *expr);
 Stmt *make_stmt_while(Arena *arena, Expr *cond, StmtList body);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
-FieldSyntax *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
+Field *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
+Field *make_aggregate_field(Arena *arena, String8 name, TypeInfo* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
-Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields);
+Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, String8 name);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
-Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type);
+Expr *make_expr_compound(Arena *arena, ExprList fields, TypeInfo *type);
 Decl *make_var_decl(Arena *arena, String8 name, TypeSyntax* type, Expr *expr);
 Decl *make_var_assign(Arena *arena, String8 name, Expr *expr);
 
@@ -187,7 +157,7 @@ Expr *parse_increasing_precedence(Lexer *lexer, Expr *left, i32 min_precedence);
 Expr *parse_expr_call(Lexer *lexer, Expr *expr);
 ExprList parse_call_params(Lexer *lexer);
 Expr *parse_expr_compound_field(Lexer *lexer);
-Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type);
+Expr *parse_expr_compound(Lexer *lexer, TypeInfo *type);
 
 // Statement parsing
 Stmt *parse_stmt(Lexer *lexer);
@@ -197,8 +167,8 @@ Decl *parse_decl_func(Lexer *lexer, String8 name);
 FuncParam *parse_decl_param(Lexer *lexer);
 ParamList parse_decl_params(Lexer *lexer);
 Decl *parse_decl_struct(Lexer *lexer, String8 struct_name);
-FieldSyntaxList parse_aggregate_fields(Lexer *lexer);
-FieldSyntax *parse_aggregate_field(Lexer *lexer);
+FieldList parse_aggregate_fields(Lexer *lexer);
+Field *parse_aggregate_field(Lexer *lexer);
 
 Stmt *parse_stmt_decl(Lexer *lexer, String8 name);
 Stmt *parse_stmt_expr(Lexer *lexer, Expr *expr);

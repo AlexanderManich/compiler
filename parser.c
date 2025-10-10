@@ -84,16 +84,14 @@ FuncParam *make_decl_param(Arena *arena, String8 name, TypeSyntax* type) {
     return result;
 }
 
-FieldSyntax *make_aggregate_field(Arena *arena, String8 name, TypeSyntax* type) {
-    FieldSyntax *result = push_array(arena, FieldSyntax , 1);
-    *result = (FieldSyntax){
-        .name = name,
-        .type = type
-    };
+Field *make_aggregate_field(Arena *arena, String8 name, TypeInfo* type) {
+    Field *result = push_array(arena, Field, 1);
+    result->name = name;
+    result->type = type;
     return result;
 }
 
-Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields) {
+Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldList fields) {
     Decl *result = push_array(arena, Decl, 1);
     *result = (Decl){
         .kind = DECL_STRUCT, 
@@ -131,7 +129,7 @@ Expr *make_expr_field(Arena *arena, Expr *expr, String8 field_name) {
     return result;
 }
 
-Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type) {
+Expr *make_expr_compound(Arena *arena, ExprList fields, TypeInfo *type) {
     Expr *result = push_array(arena, Expr, 1);
     result->kind = EXPR_COMPOUND;
     result->compound_literal.fields = fields;
@@ -202,6 +200,13 @@ TypeSyntax *make_type_syntax_array(Arena *arena, TypeSyntax *type, Expr *size_ex
     return result;
 }
 
+TypeInfo *make_type_info(Arena *arena, Type *type, TypeSyntax *type_syntax) {
+    TypeInfo *result = push_array(arena, TypeInfo, 1);
+    result->type = type;
+    result->syntax = type_syntax;
+    return result;
+}
+
 // Parsing
 Expr *parse_leaf(Lexer *lexer) {
     Token next = *peek_next_token(lexer);
@@ -237,7 +242,10 @@ Expr *parse_leaf(Lexer *lexer) {
                         break;
                     }
 
-                    TypeSyntax *type = make_type_syntax_name(lexer->parser->arena, expr->name);
+                    TypeSyntax *type_syntax = make_type_syntax_name(lexer->parser->arena, expr->name);
+                    // TODO: Lifetime of the arena used here i questionable. 
+                    // TypeInfo should have a lifetime that is at least as long as Type*
+                    TypeInfo *type = make_type_info(lexer->parser->arena, 0, type_syntax);
                     result = parse_expr_compound(lexer, type);
                     break;
                 }
@@ -307,7 +315,7 @@ Expr *parse_expr(Lexer *lexer, i32 min_precedence) {
     return left;
 }
 
-Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type) {
+Expr *parse_expr_compound(Lexer *lexer, TypeInfo *type) {
     ExprList fields = {0};
     Token next = *parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
     while (next.kind != TOKEN_RIGHT_CURLY) {
@@ -462,22 +470,23 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     return function;
 }
 
-FieldSyntax *parse_aggregate_field(Lexer *lexer) {
+Field *parse_aggregate_field(Lexer *lexer) {
     Token *next = parser_expect(lexer, peek_next_token(lexer), TOKEN_NAME);
     String8 field_name = next->text;
 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON);
 
-    TypeSyntax *field_type = parse_type(lexer, 0); 
+    TypeSyntax *field_type_syntax = parse_type(lexer, 0); 
+    TypeInfo *field_type = make_type_info(lexer->parser->arena, 0, field_type_syntax);
     parser_expect(lexer, peek_next_token(lexer), TOKEN_SEMICOLON);
 
     return make_aggregate_field(lexer->parser->arena, field_name, field_type);
 }
 
-FieldSyntaxList parse_aggregate_fields(Lexer *lexer) {
-    FieldSyntaxList result = {0};
+FieldList parse_aggregate_fields(Lexer *lexer) {
+    FieldList result = {0};
     for (Token *next = peek_next_token(lexer); next->kind != TOKEN_RIGHT_CURLY; next = peek_next_token(lexer)) {
-        FieldSyntax *field = parse_aggregate_field(lexer);
+        Field *field = parse_aggregate_field(lexer);
         da_append(lexer->parser->arena, result, field);
     }
     return result;
@@ -488,7 +497,7 @@ Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
     parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_STRUCT); 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY); 
 
-    FieldSyntaxList fields = parse_aggregate_fields(lexer);
+    FieldList fields = parse_aggregate_fields(lexer);
 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
 
@@ -622,7 +631,7 @@ Stmt *parse_stmt_return(Lexer *lexer) {
 TypeSyntax *parse_type(Lexer *lexer, TypeSyntax **type) {
     Token next = *peek_next_token(lexer);
     if (!type) {
-        type = push_array(lexer->parser->arena, TypeSyntax*, 1);
+        type = push_array(lexer->parser->arena, TypeSyntax *, 1);
     }
     if (next.kind == TOKEN_NAME) {
         Token *name = parser_expect(lexer, &next, TOKEN_NAME);
@@ -828,8 +837,8 @@ void ast_print_decl(Decl *decl, i32 depth) {
             printf("struct (%.*s)\n", str8_varg(decl->name));
             for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
                 print_indent(depth + 1);
-                FieldSyntax *field = decl->aggregate.fields.items[i];
-                printf("field (%.*s: %.*s)\n", str8_varg(field->name), str8_varg(field->type->name));
+                Field *field = decl->aggregate.fields.items[i];
+                printf("field (%.*s: %.*s)\n", str8_varg(field->name), str8_varg(field->type->syntax->name));
             }
             break;
         default:
