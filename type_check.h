@@ -82,6 +82,13 @@ static Symbol builtin_symbols[] = {
     [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8} },
 };
 
+typedef struct SymbolList SymbolList;
+struct SymbolList {
+    Symbol **items;
+    u64 size;
+    u64 capacity;
+};
+
 // https://nullprogram.com/blog/2023/09/30/ 
 typedef struct SymbolTable SymbolTable;
 struct SymbolTable {
@@ -97,7 +104,7 @@ struct TypeSet {
 };
 
 // TODO: I should not use scope.arena to allocate symbols in this 
-static SymbolTable *GLOBAL_ORDERED_SYMBOLS = {0};
+// static SymbolTable *GLOBAL_ORDERED_SYMBOLS = {0};
 
 typedef struct Scope Scope;
 struct Scope {

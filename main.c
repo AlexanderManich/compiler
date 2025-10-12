@@ -5,7 +5,6 @@
 #include "type_check.h"
 #include "parser.h"
 #include "code_gen.h"
-#include "ir.h"
 #include "base/base_include.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
@@ -35,6 +34,8 @@ static u8 parser_arena_buffer[PARSER_ARENA_SIZE];
 #define TYPE_ARENA_SIZE MB(1)
 static u8 type_arena_buffer[TYPE_ARENA_SIZE];
 static Arena GLOBAL_TYPE_ARENA = {0};
+
+static SymbolList GLOBAL_ORDERED_SYMBOLS;
 
 int main(int argc, char **argv) {
     Arena global_arena = {0};
@@ -95,13 +96,17 @@ int main(int argc, char **argv) {
     // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
-    // symbol_print_decls(global_scope.symbols);
+    symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
+
+    for (u64 i = 0; i < GLOBAL_ORDERED_SYMBOLS.size; i++) {
+        printf("name: %.*s\n", str8_varg(GLOBAL_ORDERED_SYMBOLS.items[i]->name));
+    }
 
     if (!output_file_path.str) {
         output_file_path = str8_lit("build/main");
     }
-    codegen_ast(&global_arena, program_ast, output_file_path);
+    codegen_ast(&global_arena, GLOBAL_ORDERED_SYMBOLS, output_file_path);
     asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
@@ -111,5 +116,4 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "type_check.c"
-#include "ir.c"
 #include "code_gen.c"

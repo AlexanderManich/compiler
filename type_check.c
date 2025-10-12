@@ -361,7 +361,8 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
             break;
     }
     symbol->state = SYMBOL_RESOLVED;
-    table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, symbol->name, symbol);
+    da_append(scope->arena, GLOBAL_ORDERED_SYMBOLS, symbol);
+    // table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, symbol->name, symbol);
 }
 
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
@@ -507,7 +508,8 @@ void complete_type(Type *type, Scope *scope) {
         // complete_union_type(type, fields);
     }
     
-    table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, type->symbol->name, type->symbol);
+    da_append(scope->arena, GLOBAL_ORDERED_SYMBOLS, type->symbol);
+    // table_insert(scope->arena, &GLOBAL_ORDERED_SYMBOLS, type->symbol->name, type->symbol);
 }
 
 void resolve_func_body(Symbol *symbol, Scope *local_scope) {
