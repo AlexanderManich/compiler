@@ -62,12 +62,16 @@ Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl) {
     return result;
 }
 
-Symbol *make_symbol_var(Arena *arena, String8 name, Type *type) {
+Symbol *make_symbol_var(Arena *arena, String8 name, Type *type, Decl *decl) {
     Symbol *result = push_array(arena, Symbol, 1);
     result->name = name;
     result->type = type;
     result->kind = SYMBOL_VAR;
     result->state = SYMBOL_RESOLVED;
+    if (decl) {
+        result->decl = decl;
+        result->decl->symbol = result;
+    }
     return result;
 }
 
@@ -347,8 +351,8 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
         //     symbol->type = resolve_decl_type(symbol->node);
         //     break;
         // case SYMBOL_VAR:
-        //     symbol->type = resolve_decl_var(symbol->node);
-        //     break;
+            // symbol->type = resolve_decl_var(symbol->node);
+            // break;
         // case SYMBOL_CONST:
         //     symbol->type = resolve_decl_const(symbol->node);
         //     break;
@@ -519,7 +523,7 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     for (u64 i = 0; i < decl->func.params.size; i++) {
         FuncParam *param = decl->func.params.items[i];
         Type* param_type = resolve_type_syntax(param->type, local_scope);
-        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type);
+        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type, 0);
         table_insert(local_scope->arena, &local_scope->symbols, var->name, var);
     }
     // NOTE: Overwrite expected return type, to match return type of the function we have entered
@@ -546,7 +550,7 @@ void resolve_stmt_decl(Decl *decl, Scope *scope) {
                 return;
             }
                 
-            Symbol *symbol = make_symbol_var(scope->arena, decl->name, expr_type);
+            Symbol *symbol = make_symbol_var(scope->arena, decl->name, expr_type, decl);
             table_insert(scope->arena, &scope->symbols, decl->name, symbol);
             break;
         }
@@ -610,7 +614,7 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
             if (stmt->expr) {
                 ResolvedExpr expr = resolve_expr(stmt->expr, scope);
                 if (expr.type != scope->expected_return_type) {
-                    fprintf(stderr, "Mismatched return type. Expected %.*s got %.*s",
+                    fprintf(stderr, "Mismatched return type. Expected %.*s got %.*s\n",
                         str8_varg(type_kind_name(scope->expected_return_type->kind)), str8_varg(type_kind_name(expr.type->kind)));
                     return;
                 }

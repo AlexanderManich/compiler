@@ -96,8 +96,9 @@ int main(int argc, char **argv) {
     // ast_print(program_ast, 0);
     register_builtin_symbols(&global_scope);
     register_decls(program_ast, &global_scope);
-    symbol_print_decls(global_scope.symbols);
+    // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
+
 
     for (u64 i = 0; i < GLOBAL_ORDERED_SYMBOLS.size; i++) {
         printf("name: %.*s\n", str8_varg(GLOBAL_ORDERED_SYMBOLS.items[i]->name));

@@ -95,6 +95,8 @@ typedef enum DeclKind {
     DECL_ENUM,
 } DeclKind;
 
+typedef struct Symbol Symbol;
+
 typedef struct Decl Decl;
 struct Decl {
     DeclKind kind;
@@ -104,6 +106,7 @@ struct Decl {
         struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
         struct { FieldSyntaxList fields; } aggregate;
     };
+    Symbol *symbol;
 };
 
 typedef struct DeclList DeclList;
