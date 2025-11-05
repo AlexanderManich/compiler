@@ -71,8 +71,8 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
             // VERY WORK IN PROGRESS
             for (u64 i = 0; i < symbol->decl->func.body.size; i++) {
                 Stmt *stmt = symbol->decl->func.body.items[i];
-                if (stmt->kind = STMT_DECL) {
-                    if (stmt->decl->var.expr->kind = EXPR_NAME) {
+                if (stmt->kind == STMT_DECL) {
+                    if (stmt->decl->var.expr->kind == EXPR_NAME) {
 
                     }
                 }

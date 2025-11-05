@@ -62,16 +62,12 @@ Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl) {
     return result;
 }
 
-Symbol *make_symbol_var(Arena *arena, String8 name, Type *type, Decl *decl) {
+Symbol *make_symbol_var(Arena *arena, String8 name, Type *type) {
     Symbol *result = push_array(arena, Symbol, 1);
     result->name = name;
     result->type = type;
     result->kind = SYMBOL_VAR;
     result->state = SYMBOL_RESOLVED;
-    if (decl) {
-        result->decl = decl;
-        result->decl->symbol = result;
-    }
     return result;
 }
 
@@ -523,7 +519,7 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     for (u64 i = 0; i < decl->func.params.size; i++) {
         FuncParam *param = decl->func.params.items[i];
         Type* param_type = resolve_type_syntax(param->type, local_scope);
-        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type, 0);
+        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type);
         table_insert(local_scope->arena, &local_scope->symbols, var->name, var);
     }
     // NOTE: Overwrite expected return type, to match return type of the function we have entered
@@ -550,7 +546,10 @@ void resolve_stmt_decl(Decl *decl, Scope *scope) {
                 return;
             }
                 
-            Symbol *symbol = make_symbol_var(scope->arena, decl->name, expr_type, decl);
+            Symbol *symbol = make_symbol_var(scope->arena, decl->name, expr_type);
+            // Link symbol to declaration. Used in codegen
+            decl->symbol = symbol;
+            symbol->decl = decl;
             table_insert(scope->arena, &scope->symbols, decl->name, symbol);
             break;
         }
