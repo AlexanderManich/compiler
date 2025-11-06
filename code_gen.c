@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "type_check.h"
 
+FILE *GLOBAL_ASM_HANDLE = 0;
 
 typedef struct FrameInfo FrameInfo;
 struct FrameInfo {
@@ -30,6 +31,22 @@ FrameInfo locals_offset(Decl *func_decl) {
     return frame_info;
 }
 
+void codegen_expr(Expr *expr) {
+    switch (expr->kind) {
+        case EXPR_INT: {
+            fprintf(GLOBAL_ASM_HANDLE, "    movl $%ld, %%eax\n", expr->int_value);
+            break;
+        }
+        case EXPR_BINARY: {
+            
+            break;
+        }
+        case EXPR_NAME: {
+            break;
+        }
+    }
+}
+
 void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
     String8 stripped_output_path = str8_strip_ext(output_path);
     char *asm_init_string = "    .text\n"
@@ -46,6 +63,7 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
         fprintf(stderr, "File %.*s doesn't exist\n", str8_varg(asm_output_path));
         exit(EXIT_FAILURE);
     }
+    GLOBAL_ASM_HANDLE = asm_output_handle;
 
     fprintf(asm_output_handle, "%s", asm_init_string);
 
@@ -69,16 +87,23 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
             }
 
             // VERY WORK IN PROGRESS
-            for (u64 i = 0; i < symbol->decl->func.body.size; i++) {
+            for (u64 i = 0, offset = 0; i < symbol->decl->func.body.size; i++) {
                 Stmt *stmt = symbol->decl->func.body.items[i];
                 if (stmt->kind == STMT_DECL) {
-                    if (stmt->decl->var.expr->kind == EXPR_NAME) {
-
+                    if (stmt->decl->var.expr->kind == EXPR_INT) {
+                        fprintf(asm_output_handle, "    movl $%ld, -%lu(%%rbp)\n", stmt->decl->var.expr->int_value, offset + stmt->decl->symbol->type->size);
+                        offset += stmt->decl->symbol->type->size;
+                    }
+                }
+                if (stmt->kind == STMT_RETURN) {
+                    if (stmt->expr) {
+                        codegen_expr(stmt->expr);
                     }
                 }
             }
-
+            
             fprintf(asm_output_handle, "    popq %%rbp\n");
+            fprintf(asm_output_handle, "    ret\n");
         }
     }
 
