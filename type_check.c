@@ -204,6 +204,7 @@ ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_NAME);
     Symbol *symbol = resolve_name(expr->name, scope);
     if (symbol->kind == SYMBOL_VAR) {
+        expr->symbol = symbol;
         return resolved_lvalue(symbol->type);
     }
     if (symbol->kind == SYMBOL_CONST) {
@@ -347,8 +348,8 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
         //     symbol->type = resolve_decl_type(symbol->node);
         //     break;
         // case SYMBOL_VAR:
-            // symbol->type = resolve_decl_var(symbol->node);
-            // break;
+        //     symbol->type = resolve_decl_var(symbol->decl);
+        //     break;
         // case SYMBOL_CONST:
         //     symbol->type = resolve_decl_const(symbol->node);
         //     break;
@@ -519,8 +520,8 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     for (u64 i = 0; i < decl->func.params.size; i++) {
         FuncParam *param = decl->func.params.items[i];
         Type* param_type = resolve_type_syntax(param->type, local_scope);
-        Symbol *var = make_symbol_var(local_scope->arena, param->name, param_type);
-        table_insert(local_scope->arena, &local_scope->symbols, var->name, var);
+        Symbol *param_symbol = make_symbol_var(local_scope->arena, param->name, param_type);
+        table_insert(local_scope->arena, &local_scope->symbols, param_symbol->name, param_symbol);
     }
     // NOTE: Overwrite expected return type, to match return type of the function we have entered
     local_scope->expected_return_type = resolve_type_syntax(decl->func.return_type, local_scope);
@@ -696,12 +697,13 @@ b32 table_insert(Arena *arena, SymbolTable **table, String8 key, Symbol *value) 
         }
         table = &(*table)->child[h >> 62];
     }
-    Symbol *value_storage = push_array(arena, Symbol, 1);
-    *value_storage = *value;
+    // Symbol *value_storage = push_array(arena, Symbol, 1);
+    // value_storage = value;
 
     *table = push_array(arena, SymbolTable, 1);
     (*table)->key = key;
-    (*table)->value = value_storage;
+    // (*table)->value = value_storage;
+    (*table)->value = value;
     return true;
 }
 

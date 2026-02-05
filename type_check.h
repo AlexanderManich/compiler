@@ -70,6 +70,7 @@ struct Symbol {
     SymbolKind kind;
     SymbolState state;
     Type *type;
+    i64 stack_offset;
     Decl *decl; 
     u64 value;
 };

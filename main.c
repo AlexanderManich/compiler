@@ -84,12 +84,12 @@ int main(int argc, char **argv) {
     lexer.parser = &parser;
     
     // for (Token *token = peek_next_token(&lexer); token->kind != TOKEN_END; token = peek_next_token(&lexer)) {
-    //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(*token).str, token->text.size);
+    //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(token->kind).str, token->text.size);
     //     eat_token(&lexer);
     // }
     
     DeclList program_ast = parse_program(&lexer);
-    
+
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;
@@ -98,7 +98,6 @@ int main(int argc, char **argv) {
     register_decls(program_ast, &global_scope);
     // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
-
 
     for (u64 i = 0; i < GLOBAL_ORDERED_SYMBOLS.size; i++) {
         printf("name: %.*s\n", str8_varg(GLOBAL_ORDERED_SYMBOLS.items[i]->name));

@@ -19,6 +19,7 @@ struct Parser {
     ParserContext context;
 };
 
+typedef struct Symbol Symbol;
 typedef struct Expr Expr;
 typedef struct TypeSyntax TypeSyntax;
 typedef struct StmtList StmtList;
@@ -45,6 +46,7 @@ struct Expr {
     ExprKind kind;
     union {
         String8 name;
+        Symbol *symbol;
         i64 int_value;
         struct { Expr *left; Expr *right; TokenKind op; } binary;
         struct { Expr *expr; TokenKind op; } unary;
