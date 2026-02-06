@@ -73,6 +73,10 @@ struct Symbol {
     i64 stack_offset;
     Decl *decl; 
     u64 value;
+
+    union {
+        struct { Symbol **params; u64 params_count; } func;
+    };
 };
 
 static Symbol builtin_symbols[] = {

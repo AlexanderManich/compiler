@@ -3,27 +3,27 @@
 
 FILE *GLOBAL_ASM_HANDLE = 0;
 
-i64 layout_function(Symbol *func) {
-    debug_assert(func->kind == SYMBOL_FUNC);
+i64 layout_function(Symbol *symbol) {
+    debug_assert(symbol->kind == SYMBOL_FUNC);
 
     i64 offset = 0;
-
-    for (u64 i = 0; i < func->type->function.param_count; i++) {
-        Symbol *param = func->type->function.params[i]->symbol;
-        offset += param->type->size;
+    
+    for (u64 i = 0; i < symbol->func.params_count; i++) {
+        Symbol *param = symbol->func.params[i];
+        offset += align_pow2(param->type->size, 8);
         param->stack_offset = offset;
     }
 
-    for (u64 i = 0; i < func->decl->func.body.size; i++) {
-        Stmt *stmt = func->decl->func.body.items[i];
+    for (u64 i = 0; i < symbol->decl->func.body.size; i++) {
+        Stmt *stmt = symbol->decl->func.body.items[i];
         if (stmt->kind == STMT_DECL) {
             Symbol *local = stmt->decl->symbol;
-            offset += local->type->size;
+            offset += align_pow2(local->type->size, 8);
             local->stack_offset = offset;
         }
     }
 
-    return align_pow2(offset, 16);
+    return offset;
 }
 
 typedef struct Register {
@@ -82,6 +82,17 @@ String8 label_name(Arena *arena, u32 label_id) {
     return result;
 }
 
+b32 function_has_call(Symbol *symbol) {
+    b32 result = false;
+    for (u64 i = 0; i < symbol->decl->func.body.size; i++) {
+        Stmt *stmt = symbol->decl->func.body.items[i];
+        if (stmt->expr) {
+            if (stmt->expr->kind == EXPR_CALL) result = true;
+        }
+    }
+    return result;
+}
+
 RegHandle codegen_expr(Expr *expr) {
     if (!expr) return -1;
 
@@ -100,6 +111,23 @@ RegHandle codegen_expr(Expr *expr) {
             Symbol *symbol = expr->symbol;
             fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", symbol->stack_offset, reg_name(reg).str);
             return reg;
+        }
+        case EXPR_CALL: {
+            RegHandle result_reg = alloc_reg();
+            
+            ExprList params = expr->call.params;
+            
+            for (u64 i = 0; i < params.size; i++) {
+                if (i < sizeof(param_regs64)) {
+                    RegHandle reg = codegen_expr(params.items[i]);
+                    fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %s\n", reg_name(reg).str, param_regs64[i].str);
+                }
+            }
+
+            fprintf(GLOBAL_ASM_HANDLE, "    call %.*s\n", str8_varg(expr->call.expr->name));
+            fprintf(GLOBAL_ASM_HANDLE, "    movq %%rax, %s\n", reg_name(result_reg).str);
+
+            return result_reg;
         }
         default:
             return -1;
@@ -123,7 +151,8 @@ void codegen_stmt(Stmt *stmt) {
             fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %%rax\n", reg_name(reg).str);
             free_reg(reg);
         }
-        fprintf(GLOBAL_ASM_HANDLE, "    popq %%rbp\n");
+        // fprintf(GLOBAL_ASM_HANDLE, "    popq %%rbp\n");
+        fprintf(GLOBAL_ASM_HANDLE, "    leave\n");
         fprintf(GLOBAL_ASM_HANDLE, "    ret\n");
         break;
     
@@ -160,10 +189,22 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
             fprintf(asm_output_handle, "%.*s:\n", str8_varg(symbol->name));
             fprintf(asm_output_handle, "    pushq %%rbp\n");
             fprintf(asm_output_handle, "    movq %%rsp, %%rbp\n");
-            fprintf(asm_output_handle, "    subq $%ld, %%rbp\n", frame_size);
+            
+            if (function_has_call(symbol)) {
+                frame_size = align_pow2(frame_size, 16);
+            }
 
-            for (u64 i = 0; i < symbol->decl->func.body.size; i++) {
-                Stmt *stmt = symbol->decl->func.body.items[i];
+            if (frame_size) {
+                fprintf(asm_output_handle, "    subq $%ld, %%rsp\n", frame_size);
+            }
+
+            for (u64 j = 0; j < symbol->func.params_count; j++) {
+                Symbol *param = symbol->func.params[j];
+                fprintf(GLOBAL_ASM_HANDLE, "    movq %s, -%ld(%%rbp)\n", param_regs64[j].str, param->stack_offset);
+            }
+
+            for (u64 j = 0; j < symbol->decl->func.body.size; j++) {
+                Stmt *stmt = symbol->decl->func.body.items[j];
                 codegen_stmt(stmt);
             }
             

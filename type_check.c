@@ -465,11 +465,9 @@ void complete_struct_type(Type *type, FieldList fields) {
     type->aggregate.fields = fields;
 }
 
-#if 0
-void complete_union_type(Type *type, FieldList fields) {
+// void complete_union_type(Type *type, FieldList fields) {
     // TODO:
-}
-#endif
+// }
 
 void complete_type(Type *type, Scope *scope) {
     if (type->kind == TYPE_COMPLETING) {
@@ -517,11 +515,15 @@ void resolve_func_body(Symbol *symbol, Scope *local_scope) {
     debug_assert(symbol->state == SYMBOL_RESOLVED);
     Decl *decl = symbol->decl;
     debug_assert(decl->kind == DECL_FUNC);
-    for (u64 i = 0; i < decl->func.params.size; i++) {
+    u64 params_count = decl->func.params.size;
+    symbol->func.params = push_array(local_scope->arena, Symbol *, params_count);
+    symbol->func.params_count = params_count;
+    for (u64 i = 0; i < params_count; i++) {
         FuncParam *param = decl->func.params.items[i];
         Type* param_type = resolve_type_syntax(param->type, local_scope);
         Symbol *param_symbol = make_symbol_var(local_scope->arena, param->name, param_type);
         table_insert(local_scope->arena, &local_scope->symbols, param_symbol->name, param_symbol);
+        symbol->func.params[i] = param_symbol;
     }
     // NOTE: Overwrite expected return type, to match return type of the function we have entered
     local_scope->expected_return_type = resolve_type_syntax(decl->func.return_type, local_scope);

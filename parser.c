@@ -415,7 +415,6 @@ ParamList parse_decl_params(Lexer *lexer) {
 
     // Function takes no parameters
     if (next.kind == TOKEN_RIGHT_PAREN) {
-        result.size = 0;
         return result;
     }
 
