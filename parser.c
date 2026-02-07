@@ -117,9 +117,11 @@ Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body
 
 Expr *make_expr_call(Arena *arena, Expr *expr, ExprList params) {
     Expr *result = push_array(arena, Expr, 1);
-    result->kind = EXPR_CALL;
-    result->call.expr = expr;
-    result->call.params = params; 
+    *result = (Expr){
+        .kind = EXPR_CALL,
+        .call.expr = expr,
+        .call.params = params,
+    };
     return result;
 }
 
