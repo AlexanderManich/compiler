@@ -44,6 +44,7 @@ typedef enum TokenKind {
     TOKEN_KEYWORD_ELSE,
     TOKEN_KEYWORD_STRUCT,
     TOKEN_KEYWORD_WHILE,
+    TOKEN_KEYWORD_EXTERN,
 
     TOKEN_INVALID,
 } TokenKind;

@@ -453,10 +453,17 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
         parser_expect(lexer, &next, TOKEN_ARROW);
         return_type = parse_type(lexer, 0);
     }
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
 
-    StmtList body = parse_stmts(lexer);
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    next = *peek_next_token(lexer);
+    StmtList body = {0};
+    if (next.kind != TOKEN_SEMICOLON) {
+        parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+        body = parse_stmts(lexer);
+        parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    }
+    else {
+        parser_expect(lexer, &next, TOKEN_SEMICOLON);
+    }
 
     Decl *function = make_decl_func(lexer->parser->arena, name, params, body, return_type);
 

@@ -5,7 +5,8 @@ static Arena GLOBAL_TYPE_ARENA;
 
 TypeKind type_kind_from_str8(String8 string) {
     if (str8_compare(string, str8_lit("void"))) return TYPE_VOID;
-    if (str8_compare(string, str8_lit("s32"))) return TYPE_S32;
+    if (str8_compare(string, str8_lit("s8")))   return TYPE_S8;
+    if (str8_compare(string, str8_lit("s32")))  return TYPE_S32;
 
     fprintf(stderr, "No TypeKind defined for name: %.*s\n", str8_varg(string));
     return TYPE_VOID;
@@ -14,7 +15,8 @@ TypeKind type_kind_from_str8(String8 string) {
 String8 type_kind_name(TypeKind kind) {
     switch(kind) {
         case TYPE_VOID: return str8_lit("void");
-        case TYPE_S32: return str8_lit("s32");
+        case TYPE_S8:   return str8_lit("s8");
+        case TYPE_S32:  return str8_lit("s32");
         default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
     return (String8){0};

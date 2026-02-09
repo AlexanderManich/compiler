@@ -64,7 +64,9 @@ i32 alloc_reg(i32 force_reg) {
             result = i;
 
             if (force_reg != -1) {
-                emit_instr(INSTR_COPY, make_operand(OP_REG, i), make_operand(OP_REG, force_reg));
+                if (regs[force_reg].in_use) {
+                    emit_instr(INSTR_COPY, make_operand(OP_REG, i), make_operand(OP_REG, force_reg));
+                }
                 regs[force_reg].in_use = true;
                 result = force_reg;
             }
@@ -186,7 +188,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             return reg;
         }
         case EXPR_COMPOUND: {
-            printf("NOT IMPLEMENTED");
+            eprintf("EXPR_COMPOUND CODEGEN NOT IMPLEMENTED\n");
             debug_assert(0);
         }
         case EXPR_CALL: {
