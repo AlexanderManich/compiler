@@ -64,6 +64,7 @@ String8 token_kind_name(TokenKind kind) {
         // Keywords
         case TOKEN_KEYWORD_RETURN: return str8_lit("return keyword");
         case TOKEN_KEYWORD_IF:     return str8_lit("if keyword");
+        case TOKEN_KEYWORD_EXTERN: return str8_lit("extern keyword");
 
         case TOKEN_INVALID:        return str8_lit("invalid token");
         default:
@@ -185,11 +186,14 @@ Token *lexer_make_string(Lexer *lexer) {
     Token *result = get_unused_token(lexer);
         result->kind = TOKEN_STRING;
         eat_char(lexer); 
+        result->start_char = lexer->current_char;
         result->text.str = &lexer->input.str[lexer->input_cursor]; 
         while (lexer->input_cursor < lexer->input.size && lexer->input.str[lexer->input_cursor] != '"') {
+            // Eat string characters
             eat_char(lexer);
             result->text.size += 1;
         }
+        // Eat ending quotation mark
         eat_char(lexer); 
 
         result->end_line = lexer->current_line;

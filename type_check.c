@@ -28,9 +28,10 @@ String8 expr_kind_name(ExprKind kind) {
         case EXPR_UNARY:    return str8_lit("expr_unary");
         case EXPR_BINARY:   return str8_lit("expr_binary");
         case EXPR_COMPOUND: return str8_lit("expr_compound");
-        case EXPR_INT:      return str8_lit("expr_int");
         case EXPR_FIELD:    return str8_lit("expr_field");
         case EXPR_CALL:     return str8_lit("expr_call");
+        case EXPR_INT_LITERAL:    return str8_lit("expr_int_literal");
+        case EXPR_STRING_LITERAL: return str8_lit("expr_string_literal");
         default: fprintf(stderr, "No name defined for ExprKind %d\n", kind);
     }
     return (String8){0};
@@ -56,11 +57,13 @@ String8 name_of_type(Type *type) {
     return type->symbol->name;
 }
 
-Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl) {
+Symbol *make_symbol(Arena *arena, SymbolKind kind, Decl *decl, StorageClass storage, Linkage linkage) {
     Symbol *result = push_array(arena, Symbol, 1);
     result->name = decl->name;
     result->decl = decl;
     result->kind = kind;
+    result->storage = storage;
+    result->linkage = linkage;
     return result;
 }
 
@@ -70,6 +73,7 @@ Symbol *make_symbol_var(Arena *arena, String8 name, Type *type) {
     result->type = type;
     result->kind = SYMBOL_VAR;
     result->state = SYMBOL_RESOLVED;
+    result->storage = STORAGE_STACK;
     return result;
 }
 
@@ -118,9 +122,19 @@ Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
 
 ResolvedExpr make_resolved_s32(i64 value) {
     ResolvedExpr result = {0};
-    result.value = value;
     result.is_const = true;
+    result.is_lvalue = false;
+    result.value.int_value = value;
     result.type = builtin_symbols[TYPE_S32].type;
+    return result;
+}
+
+ResolvedExpr make_resolved_string_literal(String8 value) {
+    ResolvedExpr result = {0};
+    result.is_const = true;
+    result.is_lvalue = false;
+    result.value.string_value = value;
+    result.type = builtin_symbols[TYPE_STRING].type;
     return result;
 }
 
@@ -146,15 +160,15 @@ Type *resolve_decl_func(Decl *decl, Scope *scope) {
     return type_func;
 }
 
-i64 resolve_const_expr(Expr *expr, Scope *scope) {
+ConstValue resolve_const_expr(Expr *expr, Scope *scope) {
     // TODO: I dont know about this. Added it in the case of unspecified size of array, since expr * is 0 then.
     if (!expr) {
-        return 0;
+        return (ConstValue){0};
     }
     ResolvedExpr result = resolve_expr(expr, scope);
     if (!result.is_const) {
         fprintf(stderr, "Expected a constant expression");
-        return 0;
+        return (ConstValue){0};
     }
     return result.value;
 }
@@ -169,7 +183,7 @@ ResolvedExpr resolved_lvalue(Type *type) {
     return result;
 }
 
-ResolvedExpr resolved_const(u64 value) {
+ResolvedExpr resolved_const(ConstValue value) {
     ResolvedExpr result = { .type = builtin_symbols[TYPE_S32].type, .is_const = true, .value = value };
     return result;
 }
@@ -209,19 +223,20 @@ ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
         expr->symbol = symbol;
         return resolved_lvalue(symbol->type);
     }
-    if (symbol->kind == SYMBOL_CONST) {
-        return resolved_const(symbol->value);
-    }
+    // if (symbol->kind == SYMBOL_CONST) {
+    //     return resolved_const(symbol->value);
+    // }
     if (symbol->kind == SYMBOL_FUNC) {
         return resolved_rvalue(symbol->type);
     }
     return (ResolvedExpr){0};
 }
 
-u64 eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
-    if (op == TOKEN_PLUS) return left_val + right_val;
+ConstValue eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
+    ConstValue result = {0};
+    if (op == TOKEN_PLUS) result.int_value = left_val + right_val;
 
-    return 0;
+    return result;
 }
 
 ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
@@ -237,7 +252,7 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
             str8_varg(name_of_type(left.type)), token_kind_name(expr->binary.op).str, str8_varg(name_of_type(right.type)));
     }
     if (left.is_const && right.is_const) {
-        u64 expr_result = eval_int_binary(left.value, expr->binary.op, right.value);
+        ConstValue expr_result = eval_int_binary(left.value.int_value, expr->binary.op, right.value.int_value);
         return resolved_const(expr_result);
     } else {
         return resolved_rvalue(left.type);
@@ -316,9 +331,11 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
     switch (expr->kind) {
         case EXPR_NAME: 
             return resolve_expr_name(expr, scope);
-        case EXPR_INT: 
+        case EXPR_INT_LITERAL: 
             // TODO: Built in types should be allocated in a static arena, not a locally scoped one
             return make_resolved_s32(expr->int_value);
+        case EXPR_STRING_LITERAL:
+            return make_resolved_string_literal(expr->string);
         case EXPR_UNARY:
             return resolve_expr_unary(expr, scope);
         case EXPR_BINARY:
@@ -393,7 +410,7 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
         }
         case TYPE_SYNTAX_ARRAY: {
             Type *elem_type = resolve_type_syntax(type_syntax->array.base, scope);
-            u64 size = resolve_const_expr(type_syntax->array.size, scope);
+            i64 size = resolve_const_expr(type_syntax->array.size, scope).int_value;
             
             Type *type_array = make_type_array(elem_type, size);
             return type_array;
@@ -415,12 +432,16 @@ void register_decl(Decl *decl, Scope *scope) {
         return;
     }
     SymbolKind kind = SYMBOL_NONE;
+    StorageClass storage = STORAGE_NONE;
+    Linkage linkage = LINKAGE_INTERNAL;
     switch (decl->kind) {
         case DECL_VAR: 
             kind = SYMBOL_VAR;
             break;
         case DECL_FUNC:
             kind = SYMBOL_FUNC;
+            storage = STORAGE_TEXT;
+            linkage = decl->linkage;
             break;
         case DECL_STRUCT:
         case DECL_UNION:
@@ -432,7 +453,7 @@ void register_decl(Decl *decl, Scope *scope) {
             break;
     }
 
-    symbol = make_symbol(scope->arena, kind, decl);
+    symbol = make_symbol(scope->arena, kind, decl, storage, linkage);
     if (decl->kind == DECL_STRUCT || decl->kind == DECL_UNION) {
         symbol->state = SYMBOL_RESOLVED;
         symbol->type = make_type_incomplete(scope->arena, symbol);

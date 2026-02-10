@@ -166,10 +166,13 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
     if (!expr) return -1;
 
     switch (expr->kind) {
-        case EXPR_INT: {
+        case EXPR_INT_LITERAL: {
             RegHandle reg = alloc_reg(force_reg);
             emit_instr(INSTR_LOAD_IMM, make_operand(OP_IMM, expr->int_value), make_operand(OP_REG, reg));
             return reg;
+        }
+        case EXPR_STRING_LITERAL: {
+            
         }
         case EXPR_BINARY: {
             RegHandle reg1 = codegen_expr(expr->binary.left, REG_RDX);
@@ -229,7 +232,7 @@ void codegen_stmt(Stmt *stmt) {
     case STMT_DECL: {
         Symbol *symbol = stmt->decl->symbol;
         i64 expr_val = stmt->decl->var.expr->int_value;
-        if (stmt->decl->var.expr->kind == EXPR_INT) {
+        if (stmt->decl->var.expr->kind == EXPR_INT_LITERAL) {
             emit_instr(INSTR_STORE_IMM, make_operand(OP_IMM, expr_val), make_operand(OP_STACK, symbol->stack_offset));
         }
         else {
@@ -287,6 +290,10 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
     for (u64 i = 0; i < root.size; i++) {
         Symbol *symbol = root.items[i];
         if (symbol->kind == SYMBOL_FUNC) {
+            if (symbol->decl->linkage == LINKAGE_EXTERNAL) {
+                continue;
+            }
+
             i64 frame_size = layout_function(symbol);
             emit_func_prologue(symbol->name);
             
@@ -323,7 +330,7 @@ void asm_compile_and_link(Arena *arena, String8 out_flag) {
     sprintf(asm_command, "as %.*s -o %.*s", str8_varg(asm_output_path), str8_varg(obj_file_path));
 
     char link_command[256];
-    sprintf(link_command, "ld %.*s -o %s", str8_varg(obj_file_path), out_flag.str);
+    sprintf(link_command, "cc -nostartfiles %.*s -o %s", str8_varg(obj_file_path), out_flag.str);
 
     system(asm_command);
     system(link_command);

@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     }
 
     if (!input_file_path.size) {
-        fprintf(stderr, "ERROR: No input provided\n");
+        fprintf(stderr, "ERROR: No source file provided\n");
         return EXIT_FAILURE;
     }
 
@@ -87,9 +87,11 @@ int main(int argc, char **argv) {
     //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(token->kind).str, token->text.size);
     //     eat_token(&lexer);
     // }
+
     
     DeclList program_ast = parse_program(&lexer);
-
+    // exit(0);
+    
     Scope global_scope = {0};
 
     global_scope.arena = &parser_arena;

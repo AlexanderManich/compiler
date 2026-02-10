@@ -68,7 +68,7 @@ struct TokenLiteral {
     i32 precedence;
 };
 
-extern TokenLiteral token_literals[];
+TokenLiteral token_literals[];
 
 // This needs to be a power of 2, because we are masking off bits when calculating the index
 // into the array, so it acts like a ring buffer.

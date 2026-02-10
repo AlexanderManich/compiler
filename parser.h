@@ -34,7 +34,8 @@ struct ExprList {
 
 typedef enum ExprKind {
     EXPR_NAME,
-    EXPR_INT,
+    EXPR_INT_LITERAL,
+    EXPR_STRING_LITERAL,
     EXPR_CALL,
     EXPR_BINARY,
     EXPR_UNARY,
@@ -48,6 +49,7 @@ struct Expr {
         String8 name;
         Symbol *symbol;
         i64 int_value;
+        String8 string;
         struct { Expr *left; Expr *right; TokenKind op; } binary;
         struct { Expr *expr; TokenKind op; } unary;
         struct { Expr *expr; ExprList params; } call;
@@ -99,10 +101,16 @@ typedef enum DeclKind {
 
 typedef struct Symbol Symbol;
 
+typedef enum Linkage {
+    LINKAGE_INTERNAL,
+    LINKAGE_EXTERNAL,
+} Linkage;
+
 typedef struct Decl Decl;
 struct Decl {
     DeclKind kind;
     String8 name;
+    Linkage linkage;
     union {
         struct { TypeSyntax *type; Expr *expr; } var;
         struct { ParamList params; TypeSyntax *return_type; StmtList body; } func;
@@ -172,7 +180,7 @@ Stmt *make_stmt_return(Arena *arena, Expr *expr);
 Stmt *make_stmt_while(Arena *arena, Expr *cond, StmtList body);
 FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
 FieldSyntax *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
-Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type);
+Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type, b32 is_external_func);
 Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields);
 Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
 Expr *make_expr_name(Arena *arena, String8 name);
@@ -198,7 +206,7 @@ Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type);
 Stmt *parse_stmt(Lexer *lexer);
 StmtList parse_stmts(Lexer *lexer);
 
-Decl *parse_decl_func(Lexer *lexer, String8 name);
+Decl *parse_decl_func(Lexer *lexer, String8 name, b32 is_external_function);
 FuncParam *parse_decl_param(Lexer *lexer);
 ParamList parse_decl_params(Lexer *lexer);
 Decl *parse_decl_struct(Lexer *lexer, String8 struct_name);

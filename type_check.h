@@ -16,6 +16,7 @@ typedef enum TypeKind {
     TYPE_ENUM,
     TYPE_ARRAY,
     TYPE_PTR,
+    TYPE_STRING,
 } TypeKind;
 
 typedef struct Symbol Symbol;
@@ -49,6 +50,13 @@ struct Field {
     Type *type;
 };
 
+typedef enum StorageClass {
+    STORAGE_NONE,
+    STORAGE_STACK,
+    STORAGE_GLOBAL,
+    STORAGE_RODATA,
+    STORAGE_TEXT,
+} StorageClass;
 
 typedef enum SymbolKind {
     SYMBOL_NONE,
@@ -70,6 +78,8 @@ struct Symbol {
     SymbolKind kind;
     SymbolState state;
     Type *type;
+    StorageClass storage;
+    Linkage linkage;
     i64 stack_offset;
     Decl *decl; 
     u64 value;
@@ -81,10 +91,11 @@ struct Symbol {
 
 static Symbol builtin_symbols[] = {
     [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID } },
-    [TYPE_S8]  =  { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1} },
+    [TYPE_S8]   = { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1} },
     [TYPE_S16]  = { .name = str8_lit_comp("s16"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16, .size= 2, .align = 2} },
     [TYPE_S32]  = { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32, .size= 4, .align = 4} },
     [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8} },
+    [TYPE_STRING] = { .name = str8_lit_comp("string"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_STRING, .size = 8, .align = 8} },
 };
 
 typedef struct SymbolList SymbolList;
@@ -120,9 +131,14 @@ struct Scope {
     Arena *arena;
 };
 
+typedef struct ConstValue {
+    i64 int_value;
+    String8 string_value;
+} ConstValue;
+
 typedef struct ResolvedExpr {
     Type *type;
-    i64 value;
+    ConstValue value;
     b32 is_const;
     b32 is_lvalue;
 } ResolvedExpr;
@@ -148,7 +164,7 @@ void register_decl(Decl *decl, Scope *scope);
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope);
 Type *resolve_decl_func(Decl *decl, Scope *scope);
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope);
-i64 resolve_const_expr(Expr *expr, Scope *scope);
+ConstValue resolve_const_expr(Expr *expr, Scope *scope);
 Symbol *resolve_name(String8 name, Scope *scope);
 void resolve_stmt_block(StmtList block, Scope *scope);
 void resolve_stmt(Stmt *stmt, Scope *scope);

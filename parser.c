@@ -29,8 +29,17 @@ Expr *make_s32(Arena *arena, Token *token) {
     // TODO: This needs fixing later. Not sure how to handle different sizes of int. Obviously we can't know while parsing.
     Expr *result = push_array(arena, Expr, 1);
     *result = (Expr){ 
-        .kind = EXPR_INT, 
+        .kind = EXPR_INT_LITERAL, 
         .int_value = i32_from_str8(token->text) 
+    };
+    return result;
+}
+
+Expr *make_string_literal(Arena *arena, Token *token) {
+    Expr *result = push_array(arena, Expr, 1);
+    *result = (Expr){
+        .kind = EXPR_STRING_LITERAL,
+        .string = token->text 
     };
     return result;
 }
@@ -103,14 +112,15 @@ Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields
     return result;
 }
 
-Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type) {
+Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type, b32 is_external_func) {
     Decl *result = push_array(arena, Decl, 1);
     *result = (Decl){
         .kind = DECL_FUNC, 
         .name = name, 
+        .linkage = is_external_func ? LINKAGE_EXTERNAL : LINKAGE_INTERNAL,
         .func.params = params, 
         .func.body = body, 
-        .func.return_type = return_type
+        .func.return_type = return_type,
     };
     return result;
 }
@@ -268,6 +278,11 @@ Expr *parse_leaf(Lexer *lexer) {
             result = make_expr_unary(lexer->parser->arena, operator->kind, operand);
             break;
         };
+        case TOKEN_STRING: {
+            parser_expect(lexer, &next, TOKEN_STRING);
+            result = make_string_literal(lexer->parser->arena, &next);
+            break;
+        }
         case TOKEN_INT: {
             parser_expect(lexer, &next, TOKEN_INT);
             result = make_s32(lexer->parser->arena, &next);
@@ -374,16 +389,22 @@ DeclList parse_program(Lexer *lexer) {
         Token *next = peek_next_token(lexer);
 
         if (next->kind == TOKEN_COLON_COLON) {
-            Token *lookahead = peek_token(lexer, 1);
-
-            if (lookahead->kind == TOKEN_LEFT_PAREN) {
-                Decl *func_decl = parse_decl_func(lexer, decl_name);                    
+            parser_expect(lexer, next, TOKEN_COLON_COLON);
+            
+            next = peek_next_token(lexer);
+            b32 is_extern_function = false;
+            if (next->kind == TOKEN_LEFT_PAREN) {
+                Decl *func_decl = parse_decl_func(lexer, decl_name, is_extern_function);                    
                 da_append(lexer->parser->arena, program, func_decl);
-            } else if (lookahead->kind == TOKEN_KEYWORD_STRUCT) {
+            } else if (next->kind == TOKEN_KEYWORD_EXTERN) {
+                is_extern_function = true;
+                Decl *func_decl = parse_decl_func(lexer, decl_name, is_extern_function);
+                da_append(lexer->parser->arena, program, func_decl);
+            } else if (next->kind == TOKEN_KEYWORD_STRUCT) {
                 Decl *struct_decl = parse_decl_struct(lexer, decl_name);
                 da_append(lexer->parser->arena, program, struct_decl);
             } else {
-                // constant declaration "name :: expr"
+                // global variable declaration "name :: expr" (Should eval to a constant)
                 Decl *var_decl = parse_decl_var(lexer, decl_name);
                 da_append(lexer->parser->arena, program, var_decl);
             }
@@ -413,10 +434,13 @@ FuncParam *parse_decl_param(Lexer *lexer) {
 ParamList parse_decl_params(Lexer *lexer) {
     ParamList result = {0};
 
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_PAREN);
+
     Token next = *peek_next_token(lexer);
 
     // Function takes no parameters
     if (next.kind == TOKEN_RIGHT_PAREN) {
+        parser_expect(lexer, &next, TOKEN_RIGHT_PAREN);
         return result;
     }
 
@@ -428,19 +452,20 @@ ParamList parse_decl_params(Lexer *lexer) {
             parser_expect(lexer, &next, TOKEN_COMMA);
         }
     }
+
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
     
     return result;
 }
 
-Decl *parse_decl_func(Lexer *lexer, String8 name) {
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON_COLON);
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_PAREN);
+Decl *parse_decl_func(Lexer *lexer, String8 name, b32 is_extern_function) {
+
+    if(is_extern_function) {
+        parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_EXTERN);
+    }
 
     // Parse function parameters
-    Token next = *peek_next_token(lexer);
     ParamList params = parse_decl_params(lexer);
-
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_PAREN);
 
     // Parse optional return type
     TypeSyntax *return_type = make_type_syntax_name(lexer->parser->arena, str8_lit("void"));
@@ -448,24 +473,25 @@ Decl *parse_decl_func(Lexer *lexer, String8 name) {
     if (str8_compare(name, str8_lit("main"))) {
         return_type = make_type_syntax_name(lexer->parser->arena, str8_lit("s32"));
     }
-    next = *peek_next_token(lexer);
+    Token next = *peek_next_token(lexer);
     if (next.kind == TOKEN_ARROW) {
         parser_expect(lexer, &next, TOKEN_ARROW);
         return_type = parse_type(lexer, 0);
     }
 
     next = *peek_next_token(lexer);
+
     StmtList body = {0};
-    if (next.kind != TOKEN_SEMICOLON) {
+    if (!is_extern_function) {
         parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
         body = parse_stmts(lexer);
         parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
-    }
-    else {
+    } else {
+        // If function is declared external, we expect a semicolon, and there shouldn't be a body
         parser_expect(lexer, &next, TOKEN_SEMICOLON);
     }
-
-    Decl *function = make_decl_func(lexer->parser->arena, name, params, body, return_type);
+    
+    Decl *function = make_decl_func(lexer->parser->arena, name, params, body, return_type, is_extern_function);
 
     return function;
 }
@@ -858,8 +884,11 @@ void ast_print_expr(Expr *expr, i32 depth) {
         case EXPR_NAME:
             printf("name (%.*s)\n", str8_varg(expr->name));
             break;
-        case EXPR_INT:
+        case EXPR_INT_LITERAL:
             printf("int (%ld)\n", expr->int_value);
+            break;
+        case EXPR_STRING_LITERAL:
+            printf("string literal (%.*s)\n", str8_varg(expr->string));
             break;
         case EXPR_BINARY:
             printf("binary (%s)\n", token_kind_name(expr->binary.op).str);
@@ -893,7 +922,7 @@ void ast_print_expr(Expr *expr, i32 depth) {
             break;
         default:
             print_indent(depth);
-            printf("unknown expr kind %d\n", expr->kind);
+            printf("Couldn't print ast node for expr kind: %.*s\n", str8_varg(expr_kind_name(expr->kind)));
             break;
     }
 }
