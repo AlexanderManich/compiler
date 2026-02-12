@@ -172,7 +172,9 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             return reg;
         }
         case EXPR_STRING_LITERAL: {
-            
+            // TODO: FIX
+            RegHandle reg = alloc_reg(force_reg);
+            return reg;
         }
         case EXPR_BINARY: {
             RegHandle reg1 = codegen_expr(expr->binary.left, REG_RDX);
@@ -284,6 +286,16 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
         exit(EXIT_FAILURE);
     }
     GLOBAL_ASM_HANDLE = asm_output_handle;
+
+    // TEMPORARY TESTING
+    fprintf(GLOBAL_ASM_HANDLE, ".section .rodata\n"); 
+    for (u32 i = 0; i < GLOBAL_STRING_TABLE.capacity; i++) {
+        TableEntry entry = GLOBAL_STRING_TABLE.entries[i];
+        if (!entry.hash) continue;
+        String8 string = *(String8*)entry.value;
+        fprintf(GLOBAL_ASM_HANDLE, "str%d:\n", i);
+        fprintf(GLOBAL_ASM_HANDLE, "    .string \"%.*s\"\n", str8_varg(string));
+    }
 
     fprintf(asm_output_handle, "%s", asm_init_string);
 

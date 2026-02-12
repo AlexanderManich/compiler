@@ -196,6 +196,8 @@ Token *lexer_make_string(Lexer *lexer) {
         // Eat ending quotation mark
         eat_char(lexer); 
 
+        result->text = *(String8 *)table_intern(&GLOBAL_STRING_TABLE, &result->text);
+
         result->end_line = lexer->current_line;
         result->end_char = result->start_char + result->text.size;
 

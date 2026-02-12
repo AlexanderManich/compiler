@@ -37,6 +37,13 @@ static Arena GLOBAL_TYPE_ARENA = {0};
 
 static SymbolList GLOBAL_ORDERED_SYMBOLS;
 
+#define STRING_TABLE_ARENA_SIZE MB(1)
+static u8 string_table_arena_buffer[TYPE_ARENA_SIZE];
+static Arena GLOBAL_STRING_TABLE_ARENA;
+
+#define STRING_TABLE_CAPACITY 1024
+static Table GLOBAL_STRING_TABLE;
+
 int main(int argc, char **argv) {
     Arena global_arena = {0};
     arena_init(&global_arena, global_arena_buffer, GLOBAL_ARENA_SIZE);
@@ -72,6 +79,9 @@ int main(int argc, char **argv) {
     Arena parser_arena = {0};
     arena_init(&parser_arena, parser_arena_buffer, PARSER_ARENA_SIZE);
     arena_init(&GLOBAL_TYPE_ARENA, type_arena_buffer, TYPE_ARENA_SIZE);
+
+    arena_init(&GLOBAL_STRING_TABLE_ARENA, string_table_arena_buffer, STRING_TABLE_ARENA_SIZE);
+    table_init(&GLOBAL_STRING_TABLE, &GLOBAL_STRING_TABLE_ARENA, STRING_TABLE_CAPACITY, table_str8_hash, table_str8_compare, table_str8_copy);
     
     Parser parser = {0};
     parser.arena = &parser_arena;
@@ -87,10 +97,8 @@ int main(int argc, char **argv) {
     //     printf("%.*s (%s), size: %lu\n", str8_varg(token->text), token_kind_name(token->kind).str, token->text.size);
     //     eat_token(&lexer);
     // }
-
     
     DeclList program_ast = parse_program(&lexer);
-    // exit(0);
     
     Scope global_scope = {0};
 

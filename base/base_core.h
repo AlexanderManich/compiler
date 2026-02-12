@@ -39,6 +39,7 @@ typedef int32_t b32;
 #define array_count(arr) ((sizeof(arr)) / (sizeof((arr[0]))))
 
 #define align_pow2(x,b) (((x) + (b) - 1) & (~((b) - 1)))
+#define is_pow2(n) (((n) > 0) && (((n) & ((n) - 1)) == 0))
 
 // #define shift(xs, xs_size) (debug_assert((xs_size) > 0), (xs_size)--, *(xs)++)
 char *shift_args(char ***argv, int *argc);

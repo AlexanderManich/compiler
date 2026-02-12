@@ -15,7 +15,7 @@ String8 str8(u8 *str, u64 size) {
 
 inline
 b32 str8_compare(String8 str1, String8 str2) {
-    i32 result = 0;
+    b32 result = 0;
 
     if (str1.size == str2.size) {
         result = 1;
@@ -77,6 +77,15 @@ String8 str8_strip_ext(String8 string) {
     return string;
 }
 
+String8 str8_copy(Arena *arena, String8 str) {
+    String8 result;
+    result.size = str.size;
+    result.str = push_array_no_zero(arena, u8, result.size + 1);
+    memcpy(result.str, str.str, str.size);
+    result.str[str.size] = 0;
+    return result;
+}
+
 String8 str8_concat(Arena *arena, String8 str1, String8 str2) {
     String8 result;
     result.size = str1.size + str2.size;
@@ -85,4 +94,15 @@ String8 str8_concat(Arena *arena, String8 str1, String8 str2) {
     memcpy(result.str + str1.size, str2.str, str2.size);
     result.str[result.size] = 0;
     return result;
+}
+
+String8Array str8_array_zero() {
+    String8Array result = {0};
+    return result;
+}
+
+String8Array str8_array_reserve(Arena *arena, u64 count) {
+    String8Array array = {0};
+    array.buf = push_array(arena, String8, count);
+    return array;
 }
