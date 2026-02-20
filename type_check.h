@@ -7,6 +7,7 @@ typedef enum TypeKind {
     TYPE_S16,
     TYPE_S32,
     TYPE_S64,
+    TYPE_STRING,
     TYPE_NUMERICAL_END,
     TYPE_INCOMPLETE,
     TYPE_COMPLETING,
@@ -16,7 +17,6 @@ typedef enum TypeKind {
     TYPE_ENUM,
     TYPE_ARRAY,
     TYPE_PTR,
-    TYPE_STRING,
 } TypeKind;
 
 typedef struct Symbol Symbol;

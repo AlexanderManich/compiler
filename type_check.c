@@ -17,6 +17,8 @@ String8 type_kind_name(TypeKind kind) {
         case TYPE_VOID: return str8_lit("void");
         case TYPE_S8:   return str8_lit("s8");
         case TYPE_S32:  return str8_lit("s32");
+        case TYPE_STRING: return str8_lit("string");
+        case TYPE_PTR: return str8_lit("pointer");
         default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
     return (String8){0};
@@ -204,12 +206,12 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
     for (u64 i = 0; i < expr->call.params.size; i++) {
         Expr *param = expr->call.params.items[i];
         Type *expected_param_type = called.type->function.params[i];
-        scope->expected_return_type = expected_param_type;
+        // scope->expected_return_type = expected_param_type;
         ResolvedExpr resolved_param = resolve_expr(param, scope);
         if (expected_param_type != resolved_param.type) {
-            fprintf(stderr, "Type mismatch when attempting to call function %.*s. " 
-                "Parameter %.*s has type %.*s, but parameter of type %.*s was expected",
-                str8_varg(expr->name), str8_varg(param->name), 
+            fprintf(stderr, "Type mismatch when attempting to call function '%.*s. " 
+                "Parameter '%.*s' has type '%.*s', but parameter of type '%.*s' was expected.\n",
+                str8_varg(expr->call.expr->name), str8_varg(param->name), 
                 str8_varg(type_kind_name(resolved_param.type->kind)), str8_varg(type_kind_name(expected_param_type->kind)));
         }
     }
@@ -360,6 +362,7 @@ void resolve_symbol(Symbol *symbol, Scope *scope) {
         fprintf(stderr, "Detected cyclic dependency while resolving symbol: %.*s", str8_varg(symbol->name));
         return;
     }
+
     symbol->state =  SYMBOL_RESOLVING;
     switch (symbol->kind) {
         // case SYMBOL_TYPE:

@@ -23,7 +23,6 @@ i32 get_precedence_from_kind(TokenKind kind) {
     return token_literals[kind].precedence;
 }
 
-
 // Make nodes
 Expr *make_s32(Arena *arena, Token *token) {
     // TODO: This needs fixing later. Not sure how to handle different sizes of int. Obviously we can't know while parsing.
@@ -392,13 +391,9 @@ DeclList parse_program(Lexer *lexer) {
             parser_expect(lexer, next, TOKEN_COLON_COLON);
             
             next = peek_next_token(lexer);
-            b32 is_extern_function = false;
-            if (next->kind == TOKEN_LEFT_PAREN) {
+            b32 is_extern_function = (next->kind == TOKEN_KEYWORD_EXTERN);
+            if (next->kind == TOKEN_LEFT_PAREN || is_extern_function) {
                 Decl *func_decl = parse_decl_func(lexer, decl_name, is_extern_function);                    
-                da_append(lexer->parser->arena, program, func_decl);
-            } else if (next->kind == TOKEN_KEYWORD_EXTERN) {
-                is_extern_function = true;
-                Decl *func_decl = parse_decl_func(lexer, decl_name, is_extern_function);
                 da_append(lexer->parser->arena, program, func_decl);
             } else if (next->kind == TOKEN_KEYWORD_STRUCT) {
                 Decl *struct_decl = parse_decl_struct(lexer, decl_name);
@@ -518,7 +513,6 @@ FieldSyntaxList parse_aggregate_fields(Lexer *lexer) {
 }
 
 Decl *parse_decl_struct(Lexer *lexer, String8 struct_name) {
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_COLON_COLON);
     parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_STRUCT); 
     parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY); 
 

@@ -45,9 +45,9 @@ typedef enum ExprKind {
 
 struct Expr {
     ExprKind kind;
+    Symbol *symbol;
     union {
         String8 name;
-        Symbol *symbol;
         i64 int_value;
         String8 string;
         struct { Expr *left; Expr *right; TokenKind op; } binary;

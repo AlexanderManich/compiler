@@ -172,8 +172,12 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             return reg;
         }
         case EXPR_STRING_LITERAL: {
-            // TODO: FIX
             RegHandle reg = alloc_reg(force_reg);
+
+            String8 *string = table_intern(&GLOBAL_STRING_TABLE, &expr->string);
+
+            fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)string, reg_name(reg).str) ;
+
             return reg;
         }
         case EXPR_BINARY: {
@@ -271,33 +275,15 @@ void emit_func_prologue(String8 function_name) {
 
 void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
     String8 stripped_output_path = str8_strip_ext(output_path);
-    char *asm_init_string = "    .text\n"
-                            "    .global _start\n"
-                            "_start:\n"
-                            "    call main\n"
-                            "    movq %rax, %rdi\n"
-                            "    movq $60, %rax\n"
-                            "    syscall\n";
-
     String8 asm_output_path = str8_concat(arena, stripped_output_path, str8_lit(".s"));
-    FILE *asm_output_handle = fopen((char *)asm_output_path.str, "w");
-    if (!asm_output_handle) {
-        fprintf(stderr, "File %.*s doesn't exist\n", str8_varg(asm_output_path));
+
+    FILE *text_tmp = tmpfile();
+    if (!text_tmp) {
+        eprintf("tmpfile() failed\n");
         exit(EXIT_FAILURE);
     }
-    GLOBAL_ASM_HANDLE = asm_output_handle;
 
-    // TEMPORARY TESTING
-    fprintf(GLOBAL_ASM_HANDLE, ".section .rodata\n"); 
-    for (u32 i = 0; i < GLOBAL_STRING_TABLE.capacity; i++) {
-        TableEntry entry = GLOBAL_STRING_TABLE.entries[i];
-        if (!entry.hash) continue;
-        String8 string = *(String8*)entry.value;
-        fprintf(GLOBAL_ASM_HANDLE, "str%d:\n", i);
-        fprintf(GLOBAL_ASM_HANDLE, "    .string \"%.*s\"\n", str8_varg(string));
-    }
-
-    fprintf(asm_output_handle, "%s", asm_init_string);
+    GLOBAL_ASM_HANDLE = text_tmp;
 
     for (u64 i = 0; i < root.size; i++) {
         Symbol *symbol = root.items[i];
@@ -314,7 +300,7 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
             }
 
             if (frame_size) {
-                fprintf(asm_output_handle, "    subq $%ld, %%rsp\n", frame_size);
+                fprintf(GLOBAL_ASM_HANDLE, "    subq $%ld, %%rsp\n", frame_size);
             }
 
             for (u64 j = 0; j < symbol->func.params_count; j++) {
@@ -331,6 +317,41 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
         }
     }
 
+    FILE *asm_output_handle = fopen((char *)asm_output_path.str, "w");
+    if (!asm_output_handle) {
+        fprintf(stderr, "File %.*s doesn't exist\n", str8_varg(asm_output_path));
+        exit(EXIT_FAILURE);
+    }
+
+    GLOBAL_ASM_HANDLE = asm_output_handle;
+    
+    // TEMPORARY TESTING
+    fprintf(GLOBAL_ASM_HANDLE, ".section .rodata\n"); 
+    for (u32 i = 0; i < GLOBAL_STRING_TABLE.capacity; i++) {
+        TableEntry entry = GLOBAL_STRING_TABLE.entries[i];
+        if (!entry.hash) continue;
+        fprintf(GLOBAL_ASM_HANDLE, "str_%p:\n", (void *)entry.key);
+        fprintf(GLOBAL_ASM_HANDLE, "    .string \"%.*s\"\n", str8_varg(*(String8 *)entry.key));
+    }
+
+    char *asm_init_string = "    .text\n"
+                            "    .global _start\n"
+                            "_start:\n"
+                            "    call main\n"
+                            "    movq %rax, %rdi\n"
+                            "    movq $60, %rax\n"
+                            "    syscall\n";
+
+
+    fprintf(GLOBAL_ASM_HANDLE, "%s", asm_init_string);
+    rewind(text_tmp);
+    char buf[4096];
+    u64 n;
+    while ((n = fread(buf, 1, sizeof(buf), text_tmp)) > 0) {
+        fwrite(buf, 1, n, GLOBAL_ASM_HANDLE);
+    }
+
+    fclose(text_tmp);
     fclose(asm_output_handle);
 }
 
