@@ -3,6 +3,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "type_check.h"
+#include "type.h"
 #include "parser.h"
 #include "code_gen.h"
 #include "base/base_include.h"

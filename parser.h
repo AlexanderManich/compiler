@@ -4,8 +4,16 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include "lexer.h"
 #include "base/base_arena.h"
+#include "lexer.h"
+#include "type.h"
+#include "value.h"
+
+typedef struct Symbol Symbol;
+typedef struct Expr Expr;
+typedef struct TypeSyntax TypeSyntax;
+typedef struct StmtList StmtList;
+typedef struct Stmt Stmt;
 
 typedef enum ParserContext {
     CONTEXT_DEFAULT,
@@ -19,12 +27,6 @@ struct Parser {
     ParserContext context;
 };
 
-typedef struct Symbol Symbol;
-typedef struct Expr Expr;
-typedef struct TypeSyntax TypeSyntax;
-typedef struct StmtList StmtList;
-typedef struct Stmt Stmt;
-
 typedef struct ExprList ExprList;
 struct ExprList {
     Expr **items;
@@ -34,8 +36,7 @@ struct ExprList {
 
 typedef enum ExprKind {
     EXPR_NAME,
-    EXPR_INT_LITERAL,
-    EXPR_STRING_LITERAL,
+    EXPR_LITERAL,
     EXPR_CALL,
     EXPR_BINARY,
     EXPR_UNARY,
@@ -43,13 +44,27 @@ typedef enum ExprKind {
     EXPR_COMPOUND,
 } ExprKind;
 
+typedef enum AdressingMode {
+    ADRESSING_INVALID,
+    ADRESSING_NO_VALUE,
+    ADRESSING_VALUE,
+    ADRESSING_VAIARBLE,
+    ADRESSING_CONSTANT,
+    ADRESSING_TYPE,
+} AdressingMode;
+
+typedef struct TypeAndValue {
+    AdressingMode mode;
+    Type *type;
+    Value value;
+} TypeAndValue;
+
 struct Expr {
     ExprKind kind;
     Symbol *symbol;
     union {
         String8 name;
-        i64 int_value;
-        String8 string;
+        TypeAndValue tav;
         struct { Expr *left; Expr *right; TokenKind op; } binary;
         struct { Expr *expr; TokenKind op; } unary;
         struct { Expr *expr; ExprList params; } call;
@@ -98,8 +113,6 @@ typedef enum DeclKind {
     DECL_UNION,
     DECL_ENUM,
 } DeclKind;
-
-typedef struct Symbol Symbol;
 
 typedef enum Linkage {
     LINKAGE_INTERNAL,
@@ -227,16 +240,5 @@ Stmt *parse_stmt_return(Lexer *lexer);
 
 Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
-
-// Parse tree printing...
-void ast_print(DeclList decls, i32 depth);
-void ast_print_decl(Decl *decl, i32 depth);
-void ast_print_expr(Expr *expr, i32 depth);
-void ast_print_stmt(Stmt *stmt, i32 depth);
-void ast_print_type_syntax(TypeSyntax *type_syntax, i32 depth);
-
-// String/Number conversions
-i32 i32_from_str8(String8 str);
-String8 str8_from_i32(Arena *arena, i32 num);
 
 #endif //PARSER_H

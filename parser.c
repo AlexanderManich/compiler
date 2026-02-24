@@ -24,22 +24,11 @@ i32 get_precedence_from_kind(TokenKind kind) {
 }
 
 // Make nodes
-Expr *make_s32(Arena *arena, Token *token) {
-    // TODO: This needs fixing later. Not sure how to handle different sizes of int. Obviously we can't know while parsing.
+Expr *make_literal_from_token(Arena  *arena, Token *token) {
     Expr *result = push_array(arena, Expr, 1);
-    *result = (Expr){ 
-        .kind = EXPR_INT_LITERAL, 
-        .int_value = i32_from_str8(token->text) 
-    };
-    return result;
-}
-
-Expr *make_string_literal(Arena *arena, Token *token) {
-    Expr *result = push_array(arena, Expr, 1);
-    *result = (Expr){
-        .kind = EXPR_STRING_LITERAL,
-        .string = token->text 
-    };
+    result->kind = EXPR_LITERAL,
+    result->tav.mode = ADRESSING_CONSTANT,
+    result->tav.value = value_from_token(token);
     return result;
 }
 
@@ -279,12 +268,12 @@ Expr *parse_leaf(Lexer *lexer) {
         };
         case TOKEN_STRING: {
             parser_expect(lexer, &next, TOKEN_STRING);
-            result = make_string_literal(lexer->parser->arena, &next);
+            result = make_literal_from_token(lexer->parser->arena, &next);
             break;
         }
         case TOKEN_INT: {
             parser_expect(lexer, &next, TOKEN_INT);
-            result = make_s32(lexer->parser->arena, &next);
+            result = make_literal_from_token(lexer->parser->arena, &next);
             break;
         }
         default:
@@ -699,224 +688,4 @@ void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...) {
     fprintf(stderr, "%.*s\n", (int)(lexer->input_cursor - lexer->current_char + token->end_char) , lexer->input.str);
     fprintf(stderr, "%*s^\n", (int)(lexer->current_char - token_length - 1), "");
     va_end(args);    
-}
-
-i32 i32_from_str8(String8 str) {
-    i32 result = 0;
-    u64 i = 0;
-
-    while (str.str[i] >= '0' && str.str[i] <= '9') {
-        result = result * 10 + (str.str[i] - '0');
-        i++;
-    }
-
-    if (i < str.size) {
-        fprintf(stderr, "Error: Invalid integer format: %.*s\n", str8_varg(str));
-        return 0;
-    }
-
-    return result;
-}
-
-String8 str8_from_i32(Arena *arena, i32 num) {
-    String8 str = {0};
-
-    if (num == 0) {
-        return str;
-    }
-
-    u32 temp = num;
-    u32 length = 0;
-
-    while (temp > 0) {
-        temp /= 10;
-        length++;
-    }
-
-    str.str = push_array(arena, u8, length);
-    str.size = length;
-
-    while (num > 0) {
-        str.str[--length] = (num % 10) + '0';  
-        num /= 10;
-    }
-
-    return str;
-}
-
-void print_indent(i32 depth) {
-    for (i32 i = 0; i < depth; i++) printf("  "); // 2 spaces per level
-}
-
-void ast_print_stmt(Stmt *stmt, i32 depth) {
-    print_indent(depth);
-    switch (stmt->kind) {
-        case STMT_RETURN:
-            printf("return\n");
-            if (stmt->expr) {
-                ast_print_expr(stmt->expr, depth + 1);
-            }
-            break;
-        case STMT_EXPR:
-            printf("stmt expr\n");
-            ast_print_expr(stmt->expr, depth + 1);
-            break;
-        case STMT_DECL:
-            printf("decl statement\n");
-            ast_print_decl(stmt->decl, depth + 1);
-            break;
-        case STMT_ASSIGN:
-            printf("assign\n");
-            print_indent(depth + 1);
-            printf("lhs:\n");
-            ast_print_expr(stmt->assign_stmt.lhs, depth + 2);
-            print_indent(depth + 1);
-            printf("rhs:\n");
-            ast_print_expr(stmt->assign_stmt.rhs, depth + 2);
-            break;
-        case STMT_IF:
-            printf("if\n");
-            print_indent(depth + 1);
-            printf("cond:\n");
-            ast_print_expr(stmt->if_stmt.cond, depth + 2);
-            print_indent(depth + 1);
-            printf("then:\n");
-            for (u64 i = 0; i < stmt->if_stmt.if_body.size; i++)
-                ast_print_stmt(stmt->if_stmt.if_body.items[i], depth + 2);
-            if (stmt->if_stmt.else_body.size) {
-                print_indent(depth + 1);
-                printf("else:\n");
-                for (u64 i = 0; i < stmt->if_stmt.else_body.size; i++)
-                    ast_print_stmt(stmt->if_stmt.else_body.items[i], depth + 2);
-            }
-            break;
-        case STMT_WHILE:
-            printf("while\n");
-            print_indent(depth + 1);
-            printf("cond:\n");
-            ast_print_expr(stmt->while_stmt.cond, depth + 2);
-            print_indent(depth + 1);
-            for (u64 i = 0; i < stmt->while_stmt.body.size; i++)
-                ast_print_stmt(stmt->while_stmt.body.items[i], depth + 2);
-            break;
-        default:
-            print_indent(depth);
-            printf("unknown stmt kind %d\n", stmt->kind);
-            break;
-    }
-}
-
-void ast_print_decl_param(FuncParam *param, i32 depth) {
-    print_indent(depth);
-    printf("param (%.*s: %.*s)\n", str8_varg(param->name), str8_varg(param->type->name));
-}
-
-void ast_print_type_syntax(TypeSyntax *type_syntax, i32 depth) {
-    print_indent(depth);
-    switch (type_syntax->kind) {
-        case TYPE_SYNTAX_NAME:
-            printf("type (%.*s)\n", str8_varg(type_syntax->name));
-            break;
-        case TYPE_SYNTAX_POINTER:
-            printf("pointer to\n");
-            ast_print_type_syntax(type_syntax->ptr.base, depth + 1);
-            break;
-        case TYPE_SYNTAX_ARRAY:
-            printf("array of\n");
-            ast_print_type_syntax(type_syntax->array.base, depth + 1);
-            print_indent(depth + 1);
-            printf("size:\n");
-            if (type_syntax->array.size) {
-                ast_print_expr(type_syntax->array.size, depth + 2);
-            } 
-            break;
-        default:
-            printf("unknown type syntax %d\n", type_syntax->kind);
-            break;
-    }
-}
-
-void ast_print_decl(Decl *decl, i32 depth) {
-    print_indent(depth);
-    switch (decl->kind) {
-        case DECL_VAR:
-            printf("var (%.*s)\n", str8_varg(decl->name));
-            ast_print_type_syntax(decl->var.type, depth + 1);
-            ast_print_expr(decl->var.expr, depth + 1);
-            break;
-        case DECL_FUNC:
-            printf("func (%.*s)\n", str8_varg(decl->name));
-            ast_print_type_syntax(decl->func.return_type, depth + 1);
-            for (u64 i = 0; i < decl->func.params.size; i++)
-                ast_print_decl_param(decl->func.params.items[i], depth + 1);
-            for (u64 i = 0; i < decl->func.body.size; i++)
-                ast_print_stmt(decl->func.body.items[i], depth + 1);
-            break;
-        case DECL_STRUCT:
-            printf("struct (%.*s)\n", str8_varg(decl->name));
-            for (u64 i = 0; i < decl->aggregate.fields.size; i++) {
-                print_indent(depth + 1);
-                FieldSyntax *field = decl->aggregate.fields.items[i];
-                printf("field (%.*s: %.*s)\n", str8_varg(field->name), str8_varg(field->type->name));
-            }
-            break;
-        default:
-            printf("unknown decl kind %d\n", decl->kind);
-            break;
-    }
-}
-
-void ast_print(DeclList decls, i32 depth) {
-    for (u64 i = 0; i < decls.size; i++) {
-        ast_print_decl(decls.items[i], depth);
-    }
-}
-
-void ast_print_expr(Expr *expr, i32 depth) {
-    print_indent(depth);
-    switch (expr->kind) {
-        case EXPR_NAME:
-            printf("name (%.*s)\n", str8_varg(expr->name));
-            break;
-        case EXPR_INT_LITERAL:
-            printf("int (%ld)\n", expr->int_value);
-            break;
-        case EXPR_STRING_LITERAL:
-            printf("string literal (%.*s)\n", str8_varg(expr->string));
-            break;
-        case EXPR_BINARY:
-            printf("binary (%s)\n", token_kind_name(expr->binary.op).str);
-            ast_print_expr(expr->binary.left, depth + 1);
-            ast_print_expr(expr->binary.right, depth + 1);
-            break;
-        case EXPR_UNARY:
-            printf("unary (%s)\n", token_kind_name(expr->unary.op).str);
-            ast_print_expr(expr->unary.expr, depth + 1);
-            break;
-        case EXPR_CALL:
-            printf("call\n");
-            print_indent(depth + 1);
-            printf("callee:\n");
-            ast_print_expr(expr->call.expr, depth + 2);
-            for (u64 i = 0; i < expr->call.params.size; i++) {
-                print_indent(depth + 1);
-                printf("arg %llu:\n", (unsigned long long)i);
-                ast_print_expr(expr->call.params.items[i], depth + 2);
-            }
-            break;
-        case EXPR_FIELD:
-            printf("field (%.*s)\n", str8_varg(expr->field.name));
-            ast_print_expr(expr->field.expr, depth + 1);
-            break;
-        case EXPR_COMPOUND:
-            printf("compound literal\n");
-            for (u64 i = 0; i < expr->compound_literal.fields.size; i++) {
-                ast_print_expr(expr->compound_literal.fields.items[i], depth + 1);
-            }
-            break;
-        default:
-            print_indent(depth);
-            printf("Couldn't print ast node for expr kind: %.*s\n", str8_varg(expr_kind_name(expr->kind)));
-            break;
-    }
 }

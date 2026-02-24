@@ -166,18 +166,23 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
     if (!expr) return -1;
 
     switch (expr->kind) {
-        case EXPR_INT_LITERAL: {
+        case EXPR_LITERAL: {
             RegHandle reg = alloc_reg(force_reg);
-            emit_instr(INSTR_LOAD_IMM, make_operand(OP_IMM, expr->int_value), make_operand(OP_REG, reg));
-            return reg;
-        }
-        case EXPR_STRING_LITERAL: {
-            RegHandle reg = alloc_reg(force_reg);
+            switch(expr->tav.value.kind) {
+                case VALUE_INT: {
+                    emit_instr(INSTR_LOAD_IMM, make_operand(OP_IMM, expr->tav.value.integer_value), make_operand(OP_REG, reg));
+                    return reg;
+                }
+                case VALUE_STRING: {
+                    String8 *string = table_intern(&GLOBAL_STRING_TABLE, &expr->tav.value.string_value);
 
-            String8 *string = table_intern(&GLOBAL_STRING_TABLE, &expr->string);
-
-            fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)string, reg_name(reg).str) ;
-
+                    fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)string, reg_name(reg).str) ;
+                    return reg;
+                }
+                case VALUE_INVALID: {
+                    debug_assert(0);
+                }
+            }
             return reg;
         }
         case EXPR_BINARY: {
@@ -203,9 +208,11 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
         case EXPR_CALL: {
             ExprList params = expr->call.params;
             
+            // TODO: This is disgusting, clean up
             for (u64 i = params.size; i > 0; i--) {
                 u64 idx = i - 1;
-                Symbol *param = params.items[idx]->symbol;
+
+                Expr *param_expr = params.items[idx];
                 if (idx < array_count(param_regs64)) {
                     Regs64 param_reg_handle = param_regs64[idx];
                     Register param_reg = regs[param_reg_handle];
@@ -215,10 +222,20 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
                         debug_assert(0);
                     }
 
-                    fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", param->stack_offset, param_reg.name.str);
+                    if (param_expr->tav.mode == ADRESSING_CONSTANT) {
+                        fprintf(GLOBAL_ASM_HANDLE, "    movq $%d, %s\n", param_expr->tav.value.integer_value, param_reg.name.str);
+                    } else {
+                        Symbol *param = param_expr->symbol;
+                        fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", param->stack_offset, param_reg.name.str);
+                    }
                 }
                 else {
-                    fprintf(GLOBAL_ASM_HANDLE, "    pushq -%ld(%%rbp)\n", param->stack_offset);
+                    if (param_expr->tav.mode == ADRESSING_CONSTANT) {
+                        fprintf(GLOBAL_ASM_HANDLE, "    pushq $%d", param_expr->tav.value.integer_value);
+                    } else {
+                        Symbol *param = param_expr->symbol;
+                        fprintf(GLOBAL_ASM_HANDLE, "    pushq -%ld(%%rbp)\n", param->stack_offset);
+                    }
                 }
             }
 
@@ -237,15 +254,13 @@ void codegen_stmt(Stmt *stmt) {
     switch (stmt->kind) {
     case STMT_DECL: {
         Symbol *symbol = stmt->decl->symbol;
-        i64 expr_val = stmt->decl->var.expr->int_value;
-        if (stmt->decl->var.expr->kind == EXPR_INT_LITERAL) {
-            emit_instr(INSTR_STORE_IMM, make_operand(OP_IMM, expr_val), make_operand(OP_STACK, symbol->stack_offset));
-        }
-        else {
-            RegHandle reg = codegen_expr(stmt->decl->var.expr, -1);
-            emit_instr(INSTR_STORE, make_operand(OP_REG, reg), make_operand(OP_STACK, symbol->stack_offset));
-            free_reg(reg);
-        }
+        RegHandle reg = codegen_expr(stmt->decl->var.expr, -1);
+        emit_instr(INSTR_STORE, make_operand(OP_REG, reg), make_operand(OP_STACK, symbol->stack_offset));
+        free_reg(reg);
+        break;
+    }
+    case STMT_EXPR: {
+        codegen_expr(stmt->expr, -1);
         break;
     }
     case STMT_RETURN:

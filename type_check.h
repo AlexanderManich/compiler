@@ -1,54 +1,7 @@
 #pragma once 
 #include "parser.h"
 
-typedef enum TypeKind {
-    TYPE_VOID,
-    TYPE_S8,
-    TYPE_S16,
-    TYPE_S32,
-    TYPE_S64,
-    TYPE_STRING,
-    TYPE_NUMERICAL_END,
-    TYPE_INCOMPLETE,
-    TYPE_COMPLETING,
-    TYPE_FUNCTION,
-    TYPE_STRUCT,
-    TYPE_UNION,
-    TYPE_ENUM,
-    TYPE_ARRAY,
-    TYPE_PTR,
-} TypeKind;
-
-typedef struct Symbol Symbol;
-typedef struct Field Field;
-
-typedef struct FieldList FieldList;
-struct FieldList {
-    Field *items;
-    u64 size;
-    u64 capacity;
-};
-
 typedef struct Type Type;
-struct Type {
-    TypeKind kind;
-    u64 size;
-    u64 align;
-
-    Symbol *symbol;
-    union {
-        struct { Type* return_type; Type** params; u64 param_count; } function;
-        struct { FieldList fields; } aggregate;
-        struct { Type* base; u64 size; } array;
-        struct { Type* base; } ptr;
-    };
-};
-
-typedef struct Field Field;
-struct Field {
-    String8 name;
-    Type *type;
-};
 
 typedef enum StorageClass {
     STORAGE_NONE,
@@ -73,7 +26,7 @@ typedef enum SymbolState {
     SYMBOL_RESOLVED,
 } SymbolState;
 
-struct Symbol {
+typedef struct Symbol {
     String8 name;
     SymbolKind kind;
     SymbolState state;
@@ -87,7 +40,7 @@ struct Symbol {
     union {
         struct { Symbol **params; u64 params_count; } func;
     };
-};
+} Symbol;
 
 static Symbol builtin_symbols[] = {
     [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID } },
@@ -131,14 +84,9 @@ struct Scope {
     Arena *arena;
 };
 
-typedef struct ConstValue {
-    i64 int_value;
-    String8 string_value;
-} ConstValue;
-
 typedef struct ResolvedExpr {
     Type *type;
-    ConstValue value;
+    Value value;
     b32 is_const;
     b32 is_lvalue;
 } ResolvedExpr;
@@ -164,7 +112,7 @@ void register_decl(Decl *decl, Scope *scope);
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope);
 Type *resolve_decl_func(Decl *decl, Scope *scope);
 ResolvedExpr resolve_expr(Expr *expr, Scope *scope);
-ConstValue resolve_const_expr(Expr *expr, Scope *scope);
+Value resolve_const_expr(Expr *expr, Scope *scope);
 Symbol *resolve_name(String8 name, Scope *scope);
 void resolve_stmt_block(StmtList block, Scope *scope);
 void resolve_stmt(Stmt *stmt, Scope *scope);

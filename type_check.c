@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "type.h"
 #include "type_check.h"
 
 static Arena GLOBAL_TYPE_ARENA;
@@ -32,8 +33,7 @@ String8 expr_kind_name(ExprKind kind) {
         case EXPR_COMPOUND: return str8_lit("expr_compound");
         case EXPR_FIELD:    return str8_lit("expr_field");
         case EXPR_CALL:     return str8_lit("expr_call");
-        case EXPR_INT_LITERAL:    return str8_lit("expr_int_literal");
-        case EXPR_STRING_LITERAL: return str8_lit("expr_string_literal");
+        case EXPR_LITERAL:  return str8_lit("expr_literal");
         default: fprintf(stderr, "No name defined for ExprKind %d\n", kind);
     }
     return (String8){0};
@@ -122,21 +122,24 @@ Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
     return type; 
 }
 
-ResolvedExpr make_resolved_s32(i64 value) {
+ResolvedExpr make_resolved_literal(Value value) {
     ResolvedExpr result = {0};
     result.is_const = true;
     result.is_lvalue = false;
-    result.value.int_value = value;
-    result.type = builtin_symbols[TYPE_S32].type;
-    return result;
-}
-
-ResolvedExpr make_resolved_string_literal(String8 value) {
-    ResolvedExpr result = {0};
-    result.is_const = true;
-    result.is_lvalue = false;
-    result.value.string_value = value;
-    result.type = builtin_symbols[TYPE_STRING].type;
+    switch(value.kind) {
+        case VALUE_INT:    { 
+            result.type = builtin_symbols[TYPE_S32].type;
+            break;
+        }
+        case VALUE_STRING: {
+            result.type = builtin_symbols[TYPE_STRING].type;
+            break;
+        }
+        case VALUE_INVALID: {
+            debug_assert(0);
+            break;
+        }
+    }
     return result;
 }
 
@@ -162,15 +165,15 @@ Type *resolve_decl_func(Decl *decl, Scope *scope) {
     return type_func;
 }
 
-ConstValue resolve_const_expr(Expr *expr, Scope *scope) {
+Value resolve_const_expr(Expr *expr, Scope *scope) {
     // TODO: I dont know about this. Added it in the case of unspecified size of array, since expr * is 0 then.
     if (!expr) {
-        return (ConstValue){0};
+        return (Value){0};
     }
     ResolvedExpr result = resolve_expr(expr, scope);
     if (!result.is_const) {
         fprintf(stderr, "Expected a constant expression");
-        return (ConstValue){0};
+        return (Value){0};
     }
     return result.value;
 }
@@ -185,7 +188,7 @@ ResolvedExpr resolved_lvalue(Type *type) {
     return result;
 }
 
-ResolvedExpr resolved_const(ConstValue value) {
+ResolvedExpr resolved_const(Value value) {
     ResolvedExpr result = { .type = builtin_symbols[TYPE_S32].type, .is_const = true, .value = value };
     return result;
 }
@@ -206,6 +209,7 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
     for (u64 i = 0; i < expr->call.params.size; i++) {
         Expr *param = expr->call.params.items[i];
         Type *expected_param_type = called.type->function.params[i];
+        // TODO: Why did i do this?
         // scope->expected_return_type = expected_param_type;
         ResolvedExpr resolved_param = resolve_expr(param, scope);
         if (expected_param_type != resolved_param.type) {
@@ -213,6 +217,8 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
                 "Parameter '%.*s' has type '%.*s', but parameter of type '%.*s' was expected.\n",
                 str8_varg(expr->call.expr->name), str8_varg(param->name), 
                 str8_varg(type_kind_name(resolved_param.type->kind)), str8_varg(type_kind_name(expected_param_type->kind)));
+        } else {
+            
         }
     }
     return resolved_rvalue(called.type->function.return_type);
@@ -234,9 +240,9 @@ ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
     return (ResolvedExpr){0};
 }
 
-ConstValue eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
-    ConstValue result = {0};
-    if (op == TOKEN_PLUS) result.int_value = left_val + right_val;
+Value eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
+    Value result = {0};
+    if (op == TOKEN_PLUS) result.integer_value = left_val + right_val;
 
     return result;
 }
@@ -254,7 +260,7 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
             str8_varg(name_of_type(left.type)), token_kind_name(expr->binary.op).str, str8_varg(name_of_type(right.type)));
     }
     if (left.is_const && right.is_const) {
-        ConstValue expr_result = eval_int_binary(left.value.int_value, expr->binary.op, right.value.int_value);
+        Value expr_result = eval_int_binary(left.value.integer_value, expr->binary.op, right.value.integer_value);
         return resolved_const(expr_result);
     } else {
         return resolved_rvalue(left.type);
@@ -333,11 +339,8 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
     switch (expr->kind) {
         case EXPR_NAME: 
             return resolve_expr_name(expr, scope);
-        case EXPR_INT_LITERAL: 
-            // TODO: Built in types should be allocated in a static arena, not a locally scoped one
-            return make_resolved_s32(expr->int_value);
-        case EXPR_STRING_LITERAL:
-            return make_resolved_string_literal(expr->string);
+        case EXPR_LITERAL:
+            return make_resolved_literal(expr->tav.value);
         case EXPR_UNARY:
             return resolve_expr_unary(expr, scope);
         case EXPR_BINARY:
@@ -349,8 +352,7 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
         case EXPR_FIELD:
             return resolve_expr_field(expr, scope);
         default:
-            eprintf("Failed at resolving expression: ");
-            ast_print_expr(expr, 0);
+            eprintf("Failed at resolving expression");
             return (ResolvedExpr){0};
     }
 }
@@ -413,7 +415,7 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
         }
         case TYPE_SYNTAX_ARRAY: {
             Type *elem_type = resolve_type_syntax(type_syntax->array.base, scope);
-            i64 size = resolve_const_expr(type_syntax->array.size, scope).int_value;
+            i64 size = resolve_const_expr(type_syntax->array.size, scope).integer_value;
             
             Type *type_array = make_type_array(elem_type, size);
             return type_array;
