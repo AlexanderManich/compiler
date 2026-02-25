@@ -30,7 +30,6 @@ i64 layout_function(Symbol *symbol) {
 String8 param_regs32[] = {str8_lit_comp("%edi"), str8_lit_comp("%esi"), str8_lit_comp("%edx"), str8_lit_comp("%ecx"), str8_lit_comp("%r8d"), str8_lit_comp("%r9d")};
 Regs64 param_regs64[] = {REG_RDI, REG_RSI, REG_RDX, REG_RCX, REG_R8, REG_R9};
 
-typedef i32 RegHandle;
 
 #define REGISTERS_COUNT 16
 static Register regs[REGISTERS_COUNT] = {
@@ -65,7 +64,8 @@ i32 alloc_reg(i32 force_reg) {
 
             if (force_reg != -1) {
                 if (regs[force_reg].in_use) {
-                    emit_instr(INSTR_COPY, make_operand(OP_REG, i), make_operand(OP_REG, force_reg));
+                    // TODO: How do we determine the size here?
+                    emit_instr(INSTR_COPY, op_reg(i, 8), op_reg(force_reg, 8));
                 }
                 regs[force_reg].in_use = true;
                 result = force_reg;
@@ -105,39 +105,33 @@ String8 label_name(Arena *arena, u32 label_id) {
 void emit_instr(InstrKind instr, Operand src, Operand dest) {
     switch (instr) {
         case INSTR_LOAD: {
-            debug_assert(src.kind  == OP_STACK);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", src.value, reg_name(dest.value).str);
-            break;
-        }
-        case INSTR_LOAD_IMM: {
-            debug_assert(src.kind  == OP_IMM);
-            debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, %s\n", src.value, reg_name(dest.value).str);
+            if (src.kind == OP_STACK)    fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", src.stack.offset, reg_name(dest.reg.id).str);
+            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, %s\n", src.imm.value, reg_name(dest.reg.id).str);
             break;
         }
         case INSTR_STORE: {
-            debug_assert(src.kind  == OP_REG);
             debug_assert(dest.kind == OP_STACK);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq %s, -%ld(%%rbp)\n", reg_name(src.value).str, dest.value);
-            break;
-        }
-        case INSTR_STORE_IMM: {
-            debug_assert(src.kind  == OP_IMM);
-            debug_assert(dest.kind == OP_STACK);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, -%ld(%%rbp)\n", src.value, dest.value);
+            if (src.kind == OP_REG)      fprintf(GLOBAL_ASM_HANDLE, "    movq %s, -%ld(%%rbp)\n", reg_name(src.reg.id).str, dest.stack.offset);
+            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, -%ld(%%rbp)\n", src.imm.value, dest.stack.offset);
             break;
         }
         case INSTR_COPY: {
             debug_assert(src.kind == OP_REG);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %s\n", reg_name(src.value).str, reg_name(dest.value).str);
+            fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %s\n", reg_name(src.reg.id).str, reg_name(dest.reg.id).str);
             break;
         }
         case INSTR_ADD: {
             debug_assert(src.kind == OP_REG);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    addq %s, %s\n", reg_name(src.value).str, reg_name(dest.value).str);
+            fprintf(GLOBAL_ASM_HANDLE, "    addq %s, %s\n", reg_name(src.reg.id).str, reg_name(dest.reg.id).str);
+            break;
+        }
+        case INSTR_LEA: {
+            debug_assert(src.kind == OP_LABEL_ADDR);
+            debug_assert(dest.kind == OP_REG);
+            fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)src.label.symbol, reg_name(dest.reg.id).str) ;
             break;
         }
     }
@@ -154,12 +148,58 @@ b32 function_has_call(Symbol *symbol) {
     return result;
 }
 
-Operand make_operand(OperandKind kind, i64 value) {
-    Operand result = { 
-        .kind = kind, 
-        .value = value 
+static inline Operand op_reg(i32 id, u8 size) {
+    Operand result = {
+        .kind = OP_REG,
+        .size = size,
+        .reg.id = id,
     };
     return result;
+}
+
+static inline Operand op_stack(i64 offset, u8 size) {
+    Operand result = {
+        .kind = OP_STACK,
+        .size = size,
+        .stack.offset = offset,
+    };
+    return result;
+}
+
+static inline Operand op_imm(i64 value, u8 size) {
+    Operand result = {
+        .kind = OP_IMM,
+        .size = size,
+        .imm.value = value,
+    };
+    return result;
+}
+
+static inline Operand op_label_addr(void *symbol) {
+    Operand result = {
+        .kind = OP_LABEL_ADDR,
+        .label.symbol = symbol,
+    };
+    return result;
+}
+
+static inline Operand make_operand(Expr *expr) {
+    switch (expr->kind) {
+        case EXPR_LITERAL:
+            if (expr->tav.value.kind == VALUE_INT) {
+                return op_imm(expr->tav.value.integer_value, expr->tav.type->size);
+            }
+            if (expr->tav.value.kind == VALUE_STRING) {
+                return op_label_addr(&expr->tav.value.string_value);
+            }
+            debug_assert(0);
+        case EXPR_NAME:
+            return op_stack(expr->symbol->stack_offset, expr->symbol->type->size);
+        default: {
+            RegHandle reg = codegen_expr(expr, -1);
+            return op_reg(reg, expr->tav.type->size);
+        }
+    }
 }
 
 RegHandle codegen_expr(Expr *expr, i32 force_reg) {
@@ -168,15 +208,17 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
     switch (expr->kind) {
         case EXPR_LITERAL: {
             RegHandle reg = alloc_reg(force_reg);
-            switch(expr->tav.value.kind) {
+            TypeAndValue tav = expr->tav;
+            switch (tav.value.kind) {
                 case VALUE_INT: {
-                    emit_instr(INSTR_LOAD_IMM, make_operand(OP_IMM, expr->tav.value.integer_value), make_operand(OP_REG, reg));
+                    i32 size = tav.type->size;
+                    emit_instr(INSTR_LOAD, op_imm(tav.value.integer_value, size), op_reg(reg, size));
                     return reg;
                 }
                 case VALUE_STRING: {
                     String8 *string = table_intern(&GLOBAL_STRING_TABLE, &expr->tav.value.string_value);
-
-                    fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)string, reg_name(reg).str) ;
+                    emit_instr(INSTR_LEA, op_label_addr(string), op_reg(reg, expr->tav.type->size));
+                    // fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)string, reg_name(reg).str) ;
                     return reg;
                 }
                 case VALUE_INVALID: {
@@ -186,9 +228,11 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             return reg;
         }
         case EXPR_BINARY: {
-            RegHandle reg1 = codegen_expr(expr->binary.left, REG_RDX);
-            RegHandle reg2 = codegen_expr(expr->binary.right, REG_RAX);
-            if (expr->binary.op == TOKEN_PLUS) emit_instr(INSTR_ADD, make_operand(OP_REG, reg1), make_operand(OP_REG, reg2));
+            Expr *left  = expr->binary.left;
+            Expr *right = expr->binary.right;
+            RegHandle reg1 = codegen_expr(left, REG_RDX);
+            RegHandle reg2 = codegen_expr(right, REG_RAX);
+            if (expr->binary.op == TOKEN_PLUS) emit_instr(INSTR_ADD, op_reg(reg1, left->symbol->type->size), op_reg(reg2, right->tav.type->size));
             free_reg(reg1);
             return reg2;
         }
@@ -198,7 +242,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             RegHandle reg = alloc_reg(force_reg);
             Symbol *symbol = expr->symbol;
 
-            emit_instr(INSTR_LOAD, make_operand(OP_STACK, symbol->stack_offset), make_operand(OP_REG, reg));
+            emit_instr(INSTR_LOAD, op_stack(symbol->stack_offset, symbol->type->size), op_reg(reg, symbol->type->size));
             return reg;
         }
         case EXPR_COMPOUND: {
@@ -215,23 +259,18 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
                 Expr *param_expr = params.items[idx];
                 if (idx < array_count(param_regs64)) {
                     Regs64 param_reg_handle = param_regs64[idx];
-                    Register param_reg = regs[param_reg_handle];
+                    Register *param_reg = &regs[param_reg_handle];
 
-                    if (param_reg.in_use) {
-                        printf("A PARAMETER REGISTER WAS IN USE WHILE TRYING TO LOAD");
-                        debug_assert(0);
-                    }
-
-                    if (param_expr->tav.mode == ADRESSING_CONSTANT) {
-                        fprintf(GLOBAL_ASM_HANDLE, "    movq $%d, %s\n", param_expr->tav.value.integer_value, param_reg.name.str);
-                    } else {
-                        Symbol *param = param_expr->symbol;
-                        fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", param->stack_offset, param_reg.name.str);
-                    }
+                    // if (param_reg->in_use) {
+                    //     printf("A PARAMETER REGISTER WAS IN USE WHILE TRYING TO LOAD");
+                    //     debug_assert(0);
+                    // }
+                    
+                    codegen_expr(param_expr, param_reg_handle);
                 }
                 else {
                     if (param_expr->tav.mode == ADRESSING_CONSTANT) {
-                        fprintf(GLOBAL_ASM_HANDLE, "    pushq $%d", param_expr->tav.value.integer_value);
+                        fprintf(GLOBAL_ASM_HANDLE, "    pushq $%d\n", param_expr->tav.value.integer_value);
                     } else {
                         Symbol *param = param_expr->symbol;
                         fprintf(GLOBAL_ASM_HANDLE, "    pushq -%ld(%%rbp)\n", param->stack_offset);
@@ -241,7 +280,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
 
             fprintf(GLOBAL_ASM_HANDLE, "    call %.*s\n", str8_varg(expr->call.expr->name));
 
-            return REG_RAX;
+            return alloc_reg(REG_RAX);
         }
         default:
             debug_assert(0);
@@ -255,12 +294,13 @@ void codegen_stmt(Stmt *stmt) {
     case STMT_DECL: {
         Symbol *symbol = stmt->decl->symbol;
         RegHandle reg = codegen_expr(stmt->decl->var.expr, -1);
-        emit_instr(INSTR_STORE, make_operand(OP_REG, reg), make_operand(OP_STACK, symbol->stack_offset));
+        emit_instr(INSTR_STORE, op_reg(reg, symbol->type->size), op_stack(symbol->stack_offset, symbol->type->size));
         free_reg(reg);
         break;
     }
     case STMT_EXPR: {
-        codegen_expr(stmt->expr, -1);
+        RegHandle reg = codegen_expr(stmt->expr, -1);
+        free_reg(reg);
         break;
     }
     case STMT_RETURN:

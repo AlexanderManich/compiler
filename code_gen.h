@@ -6,20 +6,26 @@ typedef enum OperandKind {
     OP_REG,
     OP_STACK,
     OP_IMM,
+    OP_LABEL_ADDR,
 } OperandKind;
 
 typedef struct Operand {
     OperandKind kind;
-    i64 value;
+    u8 size;
+    union {
+        struct { i32 id; } reg;
+        struct { i64 value; } imm;
+        struct { i64 offset; } stack;
+        struct { void *symbol; } label;
+    };
 } Operand;
 
 typedef enum InstrKind {
     INSTR_LOAD,
-    INSTR_LOAD_IMM,
     INSTR_STORE,
-    INSTR_STORE_IMM,
     INSTR_COPY,
     INSTR_ADD,
+    INSTR_LEA,
 } InstrKind;
 
 typedef struct Instr {
@@ -28,7 +34,7 @@ typedef struct Instr {
     Operand   dest;
 } Instr;
 
-// NOTE: ORDER MATTERS!!! DONT CHANGE
+// NOTE: ORDER MATTERS!
 typedef enum Regs64 {
     REG_RAX,
     REG_RCX,
@@ -53,7 +59,14 @@ typedef struct Register {
     b32   in_use;
 } Register;
 
+typedef i32 RegHandle;
+
 void codegen_ast(Arena* arena, SymbolList root, String8 output_path);
+RegHandle codegen_expr(Expr *expr, i32 force_reg);
 void asm_compile_and_link(Arena *arena, String8 out_flag);
 void emit_instr(InstrKind instr, Operand src, Operand dest);
-Operand make_operand(OperandKind kind, i64 value);
+static inline Operand op_reg(i32 id, u8 size);
+static inline Operand op_stack(i64 offset, u8 size);
+static inline Operand op_imm(i64 value, u8 size);
+static inline Operand op_label_addr(void *symbol);
+static inline Operand make_operand(Expr *expr);

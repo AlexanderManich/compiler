@@ -122,16 +122,18 @@ Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
     return type; 
 }
 
-ResolvedExpr make_resolved_literal(Value value) {
+ResolvedExpr make_resolved_literal(Expr *expr) {
     ResolvedExpr result = {0};
     result.is_const = true;
     result.is_lvalue = false;
-    switch(value.kind) {
+    switch(expr->tav.value.kind) {
         case VALUE_INT:    { 
+            expr->tav.type = builtin_symbols[TYPE_S32].type;
             result.type = builtin_symbols[TYPE_S32].type;
             break;
         }
         case VALUE_STRING: {
+            expr->tav.type = builtin_symbols[TYPE_S32].type;
             result.type = builtin_symbols[TYPE_STRING].type;
             break;
         }
@@ -261,6 +263,8 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
     }
     if (left.is_const && right.is_const) {
         Value expr_result = eval_int_binary(left.value.integer_value, expr->binary.op, right.value.integer_value);
+        // TODO: FIX THIS!:
+        expr->tav.type = builtin_symbols[TYPE_S32].type;
         return resolved_const(expr_result);
     } else {
         return resolved_rvalue(left.type);
@@ -340,7 +344,7 @@ ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
         case EXPR_NAME: 
             return resolve_expr_name(expr, scope);
         case EXPR_LITERAL:
-            return make_resolved_literal(expr->tav.value);
+            return make_resolved_literal(expr);
         case EXPR_UNARY:
             return resolve_expr_unary(expr, scope);
         case EXPR_BINARY:
