@@ -6,17 +6,19 @@ typedef enum OperandKind {
     OP_REG,
     OP_STACK,
     OP_IMM,
-    OP_LABEL_ADDR,
+    OP_LABEL,
+    OP_SYMBOL,
 } OperandKind;
 
 typedef struct Operand {
     OperandKind kind;
     u8 size;
     union {
-        struct { i32 id; } reg;
-        struct { i64 value; } imm;
-        struct { i64 offset; } stack;
-        struct { void *symbol; } label;
+        u64 vreg;
+        i64 imm;
+        u64 stack_slot;
+        void *symbol;
+        u32 label_id;
     };
 } Operand;
 
@@ -63,7 +65,6 @@ typedef i32 RegHandle;
 
 void codegen_ast(Arena* arena, SymbolList root, String8 output_path);
 RegHandle codegen_expr(Expr *expr, i32 force_reg);
-void asm_compile_and_link(Arena *arena, String8 out_flag);
 void emit_instr(InstrKind instr, Operand src, Operand dest);
 static inline Operand op_reg(i32 id, u8 size);
 static inline Operand op_stack(i64 offset, u8 size);

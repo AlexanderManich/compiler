@@ -82,13 +82,20 @@ void free_reg(i32 reg) {
     return;
 }
 
+void free_param_regs(void) {
+    for (u32 i = 0; i < array_count(param_regs64); i++) {
+        free_reg(param_regs64[i]);
+    }
+    return;
+}
+
 String8 reg_name(i32 reg) {
     return regs[reg].name;
 }
 
 static u32 LABEL_COUNT = 0;
 
-u32 label_create() {
+u32 label_create(void) {
     u32 label = LABEL_COUNT;
     LABEL_COUNT++;
     return label;
@@ -106,32 +113,32 @@ void emit_instr(InstrKind instr, Operand src, Operand dest) {
     switch (instr) {
         case INSTR_LOAD: {
             debug_assert(dest.kind == OP_REG);
-            if (src.kind == OP_STACK)    fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", src.stack.offset, reg_name(dest.reg.id).str);
-            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, %s\n", src.imm.value, reg_name(dest.reg.id).str);
+            if (src.kind == OP_STACK)    fprintf(GLOBAL_ASM_HANDLE, "    movq -%ld(%%rbp), %s\n", src.stack_slot, reg_name(dest.vreg).str);
+            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, %s\n", src.imm, reg_name(dest.vreg).str);
             break;
         }
         case INSTR_STORE: {
             debug_assert(dest.kind == OP_STACK);
-            if (src.kind == OP_REG)      fprintf(GLOBAL_ASM_HANDLE, "    movq %s, -%ld(%%rbp)\n", reg_name(src.reg.id).str, dest.stack.offset);
-            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, -%ld(%%rbp)\n", src.imm.value, dest.stack.offset);
+            if (src.kind == OP_REG)      fprintf(GLOBAL_ASM_HANDLE, "    movq %s, -%ld(%%rbp)\n", reg_name(src.vreg).str, dest.stack_slot);
+            else if (src.kind == OP_IMM) fprintf(GLOBAL_ASM_HANDLE, "    movq $%ld, -%ld(%%rbp)\n", src.vreg, dest.stack_slot);
             break;
         }
         case INSTR_COPY: {
             debug_assert(src.kind == OP_REG);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %s\n", reg_name(src.reg.id).str, reg_name(dest.reg.id).str);
+            fprintf(GLOBAL_ASM_HANDLE, "    movq %s, %s\n", reg_name(src.vreg).str, reg_name(dest.vreg).str);
             break;
         }
         case INSTR_ADD: {
             debug_assert(src.kind == OP_REG);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    addq %s, %s\n", reg_name(src.reg.id).str, reg_name(dest.reg.id).str);
+            fprintf(GLOBAL_ASM_HANDLE, "    addq %s, %s\n", reg_name(src.vreg).str, reg_name(dest.vreg).str);
             break;
         }
         case INSTR_LEA: {
-            debug_assert(src.kind == OP_LABEL_ADDR);
+            debug_assert(src.kind == OP_LABEL);
             debug_assert(dest.kind == OP_REG);
-            fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)src.label.symbol, reg_name(dest.reg.id).str) ;
+            fprintf(GLOBAL_ASM_HANDLE, "    leaq str_%p(%%rip), %s\n", (void *)src.symbol, reg_name(dest.vreg).str) ;
             break;
         }
     }
@@ -152,7 +159,7 @@ static inline Operand op_reg(i32 id, u8 size) {
     Operand result = {
         .kind = OP_REG,
         .size = size,
-        .reg.id = id,
+        .vreg = id,
     };
     return result;
 }
@@ -161,7 +168,7 @@ static inline Operand op_stack(i64 offset, u8 size) {
     Operand result = {
         .kind = OP_STACK,
         .size = size,
-        .stack.offset = offset,
+        .stack_slot = offset,
     };
     return result;
 }
@@ -170,15 +177,15 @@ static inline Operand op_imm(i64 value, u8 size) {
     Operand result = {
         .kind = OP_IMM,
         .size = size,
-        .imm.value = value,
+        .imm = value,
     };
     return result;
 }
 
 static inline Operand op_label_addr(void *symbol) {
     Operand result = {
-        .kind = OP_LABEL_ADDR,
-        .label.symbol = symbol,
+        .kind = OP_LABEL,
+        .symbol = symbol,
     };
     return result;
 }
@@ -232,6 +239,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             Expr *right = expr->binary.right;
             RegHandle reg1 = codegen_expr(left, REG_RDX);
             RegHandle reg2 = codegen_expr(right, REG_RAX);
+            // TODO: This is cooked, i need to be able to have access to the type on the expr. Or i need to be able to determine when to access the type through the symbol instead.
             if (expr->binary.op == TOKEN_PLUS) emit_instr(INSTR_ADD, op_reg(reg1, left->symbol->type->size), op_reg(reg2, right->tav.type->size));
             free_reg(reg1);
             return reg2;
@@ -261,10 +269,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
                     Regs64 param_reg_handle = param_regs64[idx];
                     Register *param_reg = &regs[param_reg_handle];
 
-                    // if (param_reg->in_use) {
-                    //     printf("A PARAMETER REGISTER WAS IN USE WHILE TRYING TO LOAD");
-                    //     debug_assert(0);
-                    // }
+                    debug_assert(!param_reg->in_use && "Parameter register allocated while already in use");
                     
                     codegen_expr(param_expr, param_reg_handle);
                 }
@@ -279,6 +284,8 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             }
 
             fprintf(GLOBAL_ASM_HANDLE, "    call %.*s\n", str8_varg(expr->call.expr->name));
+            
+            free_param_regs();
 
             return alloc_reg(REG_RAX);
         }
@@ -410,16 +417,3 @@ void codegen_ast(Arena *arena, SymbolList root, String8 output_path) {
     fclose(asm_output_handle);
 }
 
-void asm_compile_and_link(Arena *arena, String8 out_flag) {
-    String8 stripped_output_path = str8_strip_ext(out_flag);
-    String8 asm_output_path = str8_concat(arena, stripped_output_path, str8_lit(".s"));
-    String8 obj_file_path = str8_concat(arena, stripped_output_path, str8_lit(".o"));
-    char asm_command[256];
-    sprintf(asm_command, "as %.*s -o %.*s", str8_varg(asm_output_path), str8_varg(obj_file_path));
-
-    char link_command[256];
-    sprintf(link_command, "cc -nostartfiles %.*s -o %s", str8_varg(obj_file_path), out_flag.str);
-
-    system(asm_command);
-    system(link_command);
-}

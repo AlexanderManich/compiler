@@ -43,11 +43,11 @@ typedef struct Symbol {
 } Symbol;
 
 static Symbol builtin_symbols[] = {
-    [TYPE_VOID] = { .name = str8_lit_comp("void"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID } },
-    [TYPE_S8]   = { .name = str8_lit_comp("s8"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,  .size= 1, .align = 1} },
-    [TYPE_S16]  = { .name = str8_lit_comp("s16"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16, .size= 2, .align = 2} },
-    [TYPE_S32]  = { .name = str8_lit_comp("s32"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32, .size= 4, .align = 4} },
-    [TYPE_S64]  = { .name = str8_lit_comp("s64"),  .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64, .size= 8, .align = 8} },
+    [TYPE_VOID] =   { .name = str8_lit_comp("void"),   .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_VOID } },
+    [TYPE_S8]   =   { .name = str8_lit_comp("s8"),     .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S8,     .size = 1, .align = 1} },
+    [TYPE_S16]  =   { .name = str8_lit_comp("s16"),    .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S16,    .size = 2, .align = 2} },
+    [TYPE_S32]  =   { .name = str8_lit_comp("s32"),    .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S32,    .size = 4, .align = 4} },
+    [TYPE_S64]  =   { .name = str8_lit_comp("s64"),    .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_S64,    .size = 8, .align = 8} },
     [TYPE_STRING] = { .name = str8_lit_comp("string"), .kind = SYMBOL_TYPE, .state = SYMBOL_RESOLVED, .type = &(Type){.kind = TYPE_STRING, .size = 8, .align = 8} },
 };
 
@@ -92,8 +92,6 @@ typedef struct ResolvedExpr {
 } ResolvedExpr;
 
 static TypeSet *GLOBAL_TYPE_TABLE = {0};
-// NOTE: Should i just define primitive types like this?
-// static Type *type_int = &(Type){.kind = TYPE_S32, .size= 4, .align = 4};
 
 TypeKind type_kind_from_str8(String8 string);
 String8 str8_from_type_kind(TypeKind kind);

@@ -218,6 +218,7 @@ Expr *parse_expr_compound(Lexer *lexer, TypeSyntax *type);
 // Statement parsing
 Stmt *parse_stmt(Lexer *lexer);
 StmtList parse_stmts(Lexer *lexer);
+StmtList parse_block(Lexer *lexer);
 
 Decl *parse_decl_func(Lexer *lexer, String8 name, b32 is_external_function);
 FuncParam *parse_decl_param(Lexer *lexer);
@@ -231,6 +232,7 @@ Stmt *parse_stmt_expr(Lexer *lexer, Expr *expr);
 Decl *parse_decl_var(Lexer *lexer, String8 name);
 Stmt *parse_stmt_assign(Lexer *lexer, Expr *lhs);
 Stmt *parse_stmt_while(Lexer *lexer);
+Stmt *parse_stmt_block(Lexer *lexer);
 
 TypeSyntax *parse_type(Lexer *lexer, TypeSyntax **type);
 

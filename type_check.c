@@ -223,6 +223,9 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
             
         }
     }
+
+    // TODO: This is hacky
+    expr->tav.type = called.type;
     return resolved_rvalue(called.type->function.return_type);
 }
 
@@ -669,6 +672,9 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
             break;
         case STMT_WHILE:
             resolve_stmt_while(stmt, scope);
+            break;
+        case STMT_BLOCK:
+            resolve_stmt_block(stmt->block, scope);
             break;
         default:
             debug_assert(0);

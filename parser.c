@@ -156,6 +156,13 @@ Stmt *make_stmt_while(Arena *arena, Expr *cond, StmtList body) {
     return result;
 }
 
+Stmt *make_stmt_block(Arena *arena, StmtList block_body) {
+    Stmt *result = push_array(arena, Stmt, 1);
+    result->kind = STMT_BLOCK;
+    result->block = block_body;
+    return result;
+}
+
 Expr *make_expr_name(Arena *arena, String8 name) {
     Expr *expr = push_array(arena, Expr, 1);
     expr->kind = EXPR_NAME;
@@ -333,12 +340,19 @@ Expr *parse_expr_compound_field(Lexer *lexer) {
     return field;
 }
 
+Stmt *parse_stmt_block(Lexer *lexer) {
+    StmtList block_body = parse_block(lexer);
+    Stmt *result = make_stmt_block(lexer->parser->arena, block_body);
+    return result;
+}
+
 Stmt *parse_stmt(Lexer *lexer) {
     Token *next = peek_next_token(lexer);
 
     if (next->kind == TOKEN_KEYWORD_RETURN) return parse_stmt_return(lexer);
     if (next->kind == TOKEN_KEYWORD_IF)     return parse_stmt_if(lexer);
     if (next->kind == TOKEN_KEYWORD_WHILE)  return parse_stmt_while(lexer);
+    if (next->kind == TOKEN_LEFT_CURLY)     return parse_stmt_block(lexer);
 
     if (next->kind == TOKEN_NAME) {
         Token *lookahead = peek_token(lexer, 1);
@@ -355,6 +369,13 @@ Stmt *parse_stmt(Lexer *lexer) {
     }
 
     return parse_stmt_expr(lexer, lhs);
+}
+
+StmtList parse_block(Lexer *lexer) {
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
+    StmtList result = parse_stmts(lexer);
+    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    return result;
 }
 
 StmtList parse_stmts(Lexer *lexer) {
@@ -467,9 +488,10 @@ Decl *parse_decl_func(Lexer *lexer, String8 name, b32 is_extern_function) {
 
     StmtList body = {0};
     if (!is_extern_function) {
-        parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
-        body = parse_stmts(lexer);
-        parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+        // parser_expect(lexer, &next, TOKEN_LEFT_CURLY);
+        // body = parse_stmts(lexer);
+        // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+        body = parse_block(lexer);
     } else {
         // If function is declared external, we expect a semicolon, and there shouldn't be a body
         parser_expect(lexer, &next, TOKEN_SEMICOLON);
@@ -554,7 +576,6 @@ Decl *parse_decl_var(Lexer *lexer, String8 name) {
     } else {
         parser_expect(lexer, &next, TOKEN_COLON_COLON);
     }
-
     Expr *rhs = parse_expr(lexer, -1);
 
     Decl *var_decl = make_var_decl(lexer->parser->arena, name, var_type, rhs);
@@ -570,9 +591,10 @@ Stmt *parse_stmt_while(Lexer *lexer) {
     Expr *cond = parse_expr(lexer, -1);
     lexer->parser->context = CONTEXT_DEFAULT;
 
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
-    StmtList body = parse_stmts(lexer);
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    // parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
+    // StmtList body = parse_stmts(lexer);
+    // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    StmtList body = parse_block(lexer);
 
     return make_stmt_while(lexer->parser->arena, cond, body);
 }
@@ -599,17 +621,19 @@ Stmt *parse_stmt_if(Lexer *lexer) {
     Expr *cond = parse_expr(lexer, -1);
     lexer->parser->context = CONTEXT_DEFAULT;
 
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
-    StmtList if_body = parse_stmts(lexer);
-    parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    // parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
+    // StmtList if_body = parse_stmts(lexer);
+    // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+    StmtList if_body = parse_block(lexer);
 
     StmtList else_body = {0};
     Token *next = peek_next_token(lexer);
     if (next->kind == TOKEN_KEYWORD_ELSE)  {
         parser_expect(lexer, next, TOKEN_KEYWORD_ELSE);
-        parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
-        else_body = parse_stmts(lexer);
-        parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+        // parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
+        // else_body = parse_stmts(lexer);
+        // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
+        else_body = parse_block(lexer);
     }
 
     Stmt *if_statement = make_stmt_if(lexer->parser->arena, cond, if_body, else_body);

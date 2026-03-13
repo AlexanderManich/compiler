@@ -5,7 +5,8 @@
 #include "type_check.h"
 #include "type.h"
 #include "parser.h"
-#include "code_gen.h"
+#include "ir_builder.h"
+#include "x86-64.h"
 #include "base/base_include.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
@@ -44,6 +45,19 @@ static Arena GLOBAL_STRING_TABLE_ARENA;
 
 #define STRING_TABLE_CAPACITY 1024
 static Table GLOBAL_STRING_TABLE;
+
+void asm_compile_and_link(Arena *arena, String8 out_flag) {
+    String8 stripped_output_path = str8_strip_ext(out_flag);
+    String8 asm_output_path = str8_concat(arena, stripped_output_path, str8_lit(".s"));
+    String8 obj_file_path = str8_concat(arena, stripped_output_path, str8_lit(".o"));
+    char asm_command[256] = {0};
+    sprintf(asm_command, "as %.*s -o %.*s", str8_varg(asm_output_path), str8_varg(obj_file_path));
+    char link_command[256] = {0};
+    sprintf(link_command, "cc -nostartfiles %.*s -o %.*s", str8_varg(obj_file_path), str8_varg(out_flag));
+
+    system(asm_command);
+    system(link_command);
+}
 
 int main(int argc, char **argv) {
     Arena global_arena = {0};
@@ -110,14 +124,22 @@ int main(int argc, char **argv) {
     // symbol_print_decls(global_scope.symbols);
     resolve_symbols(global_scope.symbols, &global_scope);
 
-    for (u64 i = 0; i < GLOBAL_ORDERED_SYMBOLS.size; i++) {
-        printf("name: %.*s\n", str8_varg(GLOBAL_ORDERED_SYMBOLS.items[i]->name));
-    }
+    // for (u64 i = 0; i < GLOBAL_ORDERED_SYMBOLS.size; i++) {
+    //     printf("name: %.*s\n", str8_varg(GLOBAL_ORDERED_SYMBOLS.items[i]->name));
+    // }
 
     if (!output_file_path.str) {
         output_file_path = str8_lit("build/main");
     }
-    codegen_ast(&global_arena, GLOBAL_ORDERED_SYMBOLS, output_file_path);
+
+    String8 stripped_output_path = str8_strip_ext(output_file_path);
+    String8 asm_output_path = str8_concat(&global_arena, stripped_output_path, str8_lit(".s"));
+    
+    IRModule program_ir = lower_program(&global_arena, program_ast);
+
+    x86_emit_program(&global_arena, &program_ir, asm_output_path);
+
+    // codegen_ast(&global_arena, GLOBAL_ORDERED_SYMBOLS, output_file_path);
     asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
@@ -127,4 +149,7 @@ int main(int argc, char **argv) {
 #include "lexer.c"
 #include "parser.c"
 #include "type_check.c"
-#include "code_gen.c"
+#include "ir_builder.c"
+#include "x86-64.c"
+
+
