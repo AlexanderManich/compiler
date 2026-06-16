@@ -1,5 +1,3 @@
-#include "ir_builder.h"
-
 IRModule ir_make_module(Arena *arena) {
     IRModule result = {0};
     result.arena = arena;

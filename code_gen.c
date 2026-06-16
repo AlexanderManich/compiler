@@ -1,7 +1,3 @@
-#include "parser.h"
-#include "code_gen.h"
-#include "type_check.h"
-
 FILE *GLOBAL_ASM_HANDLE = 0;
 
 i64 layout_function(Symbol *symbol) {
@@ -240,7 +236,7 @@ RegHandle codegen_expr(Expr *expr, i32 force_reg) {
             RegHandle reg1 = codegen_expr(left, REG_RDX);
             RegHandle reg2 = codegen_expr(right, REG_RAX);
             // TODO: This is cooked, i need to be able to have access to the type on the expr. Or i need to be able to determine when to access the type through the symbol instead.
-            if (expr->binary.op == TOKEN_PLUS) emit_instr(INSTR_ADD, op_reg(reg1, left->symbol->type->size), op_reg(reg2, right->tav.type->size));
+            if (expr->binary.op == TOKEN_PLUS) emit_instr(INSTR_ADD, op_reg(reg1, left->tav.type), op_reg(reg2, right->tav.type->size));
             free_reg(reg1);
             return reg2;
         }

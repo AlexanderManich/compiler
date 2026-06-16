@@ -1,7 +1,3 @@
-#include "lexer.h"
-#include "parser.h"
-#include "base/base_include.h"
-
 TokenKind to_operator(Token *token) {
     return token->kind;
 }

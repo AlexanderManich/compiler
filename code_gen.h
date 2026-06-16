@@ -1,7 +1,3 @@
-#pragma once
-
-#include "parser.h"
-
 typedef enum OperandKind {
     OP_REG,
     OP_STACK,

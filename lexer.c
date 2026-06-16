@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include "lexer.h"
-
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 // Since we are using designated initializers we need to make sure this is true in the token kind enum.

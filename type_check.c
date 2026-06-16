@@ -1,7 +1,3 @@
-#include "parser.h"
-#include "type.h"
-#include "type_check.h"
-
 static Arena GLOBAL_TYPE_ARENA;
 
 TypeKind type_kind_from_str8(String8 string) {
@@ -15,11 +11,11 @@ TypeKind type_kind_from_str8(String8 string) {
 
 String8 type_kind_name(TypeKind kind) {
     switch(kind) {
-        case TYPE_VOID: return str8_lit("void");
-        case TYPE_S8:   return str8_lit("s8");
-        case TYPE_S32:  return str8_lit("s32");
+        case TYPE_VOID:   return str8_lit("void");
+        case TYPE_S8:     return str8_lit("s8");
+        case TYPE_S32:    return str8_lit("s32");
         case TYPE_STRING: return str8_lit("string");
-        case TYPE_PTR: return str8_lit("pointer");
+        case TYPE_PTR:    return str8_lit("pointer");
         default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
     return (String8){0};
@@ -122,10 +118,10 @@ Type *make_type_incomplete(Arena *arena, Symbol *symbol) {
     return type; 
 }
 
-ResolvedExpr make_resolved_literal(Expr *expr) {
-    ResolvedExpr result = {0};
-    result.is_const = true;
-    result.is_lvalue = false;
+TypeAndValue make_resolved_literal(Expr *expr) {
+    TypeAndValue result = {0};
+    result.mode = ADRESSING_CONSTANT;
+
     switch(expr->tav.value.kind) {
         case VALUE_INT:    { 
             expr->tav.type = builtin_symbols[TYPE_S32].type;
@@ -167,37 +163,34 @@ Type *resolve_decl_func(Decl *decl, Scope *scope) {
     return type_func;
 }
 
-Value resolve_const_expr(Expr *expr, Scope *scope) {
-    // TODO: I dont know about this. Added it in the case of unspecified size of array, since expr * is 0 then.
-    if (!expr) {
-        return (Value){0};
-    }
-    ResolvedExpr result = resolve_expr(expr, scope);
-    if (!result.is_const) {
+TypeAndValue resolve_const_expr(Expr *expr, Scope *scope) {
+    TypeAndValue result = resolve_expr(expr, scope);
+    if (result.mode != ADRESSING_CONSTANT) {
+        // TODO: Figure out what to do in cases like this:
         fprintf(stderr, "Expected a constant expression");
-        return (Value){0};
+        debug_assert(0);
     }
-    return result.value;
-}
-
-ResolvedExpr resolved_rvalue(Type *type) {
-    ResolvedExpr result = { .type = type };
     return result;
 }
 
-ResolvedExpr resolved_lvalue(Type *type) {
-    ResolvedExpr result = { .type = type, .is_lvalue = true, };
+TypeAndValue resolved_rvalue(Type *type) {
+    TypeAndValue result = tav_rvalue(type);
     return result;
 }
 
-ResolvedExpr resolved_const(Value value) {
-    ResolvedExpr result = { .type = builtin_symbols[TYPE_S32].type, .is_const = true, .value = value };
+TypeAndValue resolved_lvalue(Type *type) {
+    TypeAndValue result  = tav_lvalue(type);
     return result;
 }
 
-ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
+TypeAndValue resolved_const(Value value) {
+    TypeAndValue result = tav_const(builtin_symbols[TYPE_S32].type, value);
+    return result;
+}
+
+TypeAndValue resolve_expr_call(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_CALL);
-    ResolvedExpr called = resolve_expr(expr->call.expr, scope);
+    TypeAndValue called = resolve_expr(expr->call.expr, scope);
     if (called.type->kind != TYPE_FUNCTION) {
         fprintf(stderr, "Tried calling non-function: %.*s\n", str8_varg(expr->name));
         debug_assert(0);
@@ -213,7 +206,7 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
         Type *expected_param_type = called.type->function.params[i];
         // TODO: Why did i do this?
         // scope->expected_return_type = expected_param_type;
-        ResolvedExpr resolved_param = resolve_expr(param, scope);
+        TypeAndValue resolved_param = resolve_expr(param, scope);
         if (expected_param_type != resolved_param.type) {
             fprintf(stderr, "Type mismatch when attempting to call function '%.*s. " 
                 "Parameter '%.*s' has type '%.*s', but parameter of type '%.*s' was expected.\n",
@@ -224,25 +217,25 @@ ResolvedExpr resolve_expr_call(Expr *expr, Scope *scope) {
         }
     }
 
-    // TODO: This is hacky
-    expr->tav.type = called.type;
     return resolved_rvalue(called.type->function.return_type);
 }
 
-ResolvedExpr resolve_expr_name(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr_name(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_NAME);
+
+    TypeAndValue result = {0};
     Symbol *symbol = resolve_name(expr->name, scope);
     if (symbol->kind == SYMBOL_VAR) {
         expr->symbol = symbol;
-        return resolved_lvalue(symbol->type);
+        result = resolved_lvalue(symbol->type);
     }
     // if (symbol->kind == SYMBOL_CONST) {
     //     return resolved_const(symbol->value);
     // }
     if (symbol->kind == SYMBOL_FUNC) {
-        return resolved_rvalue(symbol->type);
+        result = resolved_rvalue(symbol->type);
     }
-    return (ResolvedExpr){0};
+    return result;
 }
 
 Value eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
@@ -252,10 +245,13 @@ Value eval_int_binary(u64 left_val, TokenKind op, u64 right_val) {
     return result;
 }
 
-ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr_binary(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_BINARY);
-    ResolvedExpr left = resolve_expr(expr->binary.left, scope);
-    ResolvedExpr right = resolve_expr(expr->binary.right, scope);
+    
+    TypeAndValue result = {0};
+
+    TypeAndValue left  = resolve_expr(expr->binary.left, scope);
+    TypeAndValue right = resolve_expr(expr->binary.right, scope);
     // TODO: Check if any numerical type is match, not just s32 
     if (left.type != builtin_symbols[TYPE_S32].type) {
         fprintf(stderr, "left operand of + must be of type s32");
@@ -264,23 +260,23 @@ ResolvedExpr resolve_expr_binary(Expr *expr, Scope *scope) {
         fprintf(stderr, "Type mismatch - %.*s %s %.*s", 
             str8_varg(name_of_type(left.type)), token_kind_name(expr->binary.op).str, str8_varg(name_of_type(right.type)));
     }
-    if (left.is_const && right.is_const) {
+    if (left.mode == ADRESSING_CONSTANT && right.mode == ADRESSING_CONSTANT) {
         Value expr_result = eval_int_binary(left.value.integer_value, expr->binary.op, right.value.integer_value);
-        // TODO: FIX THIS!:
-        expr->tav.type = builtin_symbols[TYPE_S32].type;
-        return resolved_const(expr_result);
+        result = resolved_const(expr_result);
     } else {
-        return resolved_rvalue(left.type);
+        result = resolved_rvalue(left.type);
     }
+
+    return result;
 }
 
-ResolvedExpr resolve_expr_unary(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr_unary(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_UNARY);
-    ResolvedExpr operand = resolve_expr(expr->unary.expr, scope);
+    TypeAndValue operand = resolve_expr(expr->unary.expr, scope);
     Type *type = operand.type;
     switch (expr->unary.op) {
         case TOKEN_AND:
-            if (!operand.is_lvalue) eprintf("Attempted to take address of non-lvalue\n");
+            if (operand.mode != ADRESSING_VARIABLE) eprintf("Attempted to take address of non-lvalue\n");
             Type *ptr_type = make_type_ptr(type);
             return resolved_rvalue(ptr_type);
         default:
@@ -288,7 +284,7 @@ ResolvedExpr resolve_expr_unary(Expr *expr, Scope *scope) {
     }
 }
 
-ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr_compound(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_COMPOUND);
     if (!scope->expected_decl_type && !expr->compound_literal.type) {
         fprintf(stderr, "Compound literal used in initialization with no explicit type\n");
@@ -321,47 +317,65 @@ ResolvedExpr resolve_expr_compound(Expr *expr, Scope *scope) {
     return resolved_rvalue(type);
 }
 
-ResolvedExpr resolve_expr_field(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr_field(Expr *expr, Scope *scope) {
     debug_assert(expr->kind == EXPR_FIELD);
-    ResolvedExpr accessee = resolve_expr(expr->field.expr, scope);
-    Type *accessee_type = accessee.type;
-    complete_type(accessee_type, scope);
-    if (accessee_type->kind != TYPE_STRUCT && accessee_type->kind != TYPE_UNION) {
+
+    TypeAndValue result = {0};
+
+    TypeAndValue accessee_tav = resolve_expr(expr->field.expr, scope);
+    complete_type(accessee_tav.type, scope);
+    if (accessee_tav.type->kind != TYPE_STRUCT && accessee_tav.type->kind != TYPE_UNION) {
         fprintf(stderr, "Attempted to access field on non-aggregate type\n");
-        return (ResolvedExpr){0};
+        debug_assert(0);
     }
-    for (u64 i = 0; i < accessee_type->aggregate.fields.size; i++) {
-        Field field = accessee_type->aggregate.fields.items[i];
+    for (u64 i = 0; i < result.type->aggregate.fields.size; i++) {
+        Field field = result.type->aggregate.fields.items[i];
         if (str8_compare(field.name, expr->field.name)) {
-            return accessee.is_lvalue ? resolved_lvalue(field.type) : resolved_rvalue(field.type);
+            result = accessee_tav.mode == ADRESSING_VARIABLE ? resolved_lvalue(field.type) : resolved_rvalue(field.type);
         }
     }
 
-    fprintf(stderr, "No field named %.*s on type %.*s", str8_varg(expr->field.name), str8_varg(expr->field.expr->name));
+    // TODO: This is scuffed
+    if (result.type == 0) {
+        fprintf(stderr, "No field named %.*s on type %.*s", str8_varg(expr->field.name), str8_varg(expr->field.expr->name));
+    }
 
-    return (ResolvedExpr){0};
+    return result;
 }
 
-ResolvedExpr resolve_expr(Expr *expr, Scope *scope) {
+TypeAndValue resolve_expr(Expr *expr, Scope *scope) {
+    TypeAndValue result = {0};
     switch (expr->kind) {
         case EXPR_NAME: 
-            return resolve_expr_name(expr, scope);
+            result = resolve_expr_name(expr, scope);
+            break;
         case EXPR_LITERAL:
-            return make_resolved_literal(expr);
+            result = make_resolved_literal(expr);
+            break;
         case EXPR_UNARY:
-            return resolve_expr_unary(expr, scope);
+            result = resolve_expr_unary(expr, scope);
+            break;
         case EXPR_BINARY:
-            return resolve_expr_binary(expr, scope);
+            result = resolve_expr_binary(expr, scope);
+            break;
         case EXPR_CALL:
-            return resolve_expr_call(expr, scope);
+            result = resolve_expr_call(expr, scope);
+            break;
         case EXPR_COMPOUND:
-            return resolve_expr_compound(expr, scope);
+            result = resolve_expr_compound(expr, scope);
+            break;
         case EXPR_FIELD:
-            return resolve_expr_field(expr, scope);
+            result = resolve_expr_field(expr, scope);
+            break;
         default:
             eprintf("Failed at resolving expression");
-            return (ResolvedExpr){0};
+            debug_assert(0);
     }
+    expr->tav.mode  = result.mode;
+    expr->tav.type  = result.type;
+    expr->tav.value = result.value;
+
+    return result;
 }
 
 void resolve_symbol(Symbol *symbol, Scope *scope) {
@@ -422,7 +436,7 @@ Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope) {
         }
         case TYPE_SYNTAX_ARRAY: {
             Type *elem_type = resolve_type_syntax(type_syntax->array.base, scope);
-            i64 size = resolve_const_expr(type_syntax->array.size, scope).integer_value;
+            i64 size = resolve_const_expr(type_syntax->array.size, scope).value.integer_value;
             
             Type *type_array = make_type_array(elem_type, size);
             return type_array;
@@ -601,8 +615,8 @@ void resolve_stmt_decl(Decl *decl, Scope *scope) {
 
 void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
     debug_assert(stmt->kind == STMT_ASSIGN);
-    ResolvedExpr lhs = resolve_expr(stmt->assign_stmt.lhs, scope);
-    ResolvedExpr rhs = resolve_expr(stmt->assign_stmt.rhs, scope);
+    TypeAndValue lhs = resolve_expr(stmt->assign_stmt.lhs, scope);
+    TypeAndValue rhs = resolve_expr(stmt->assign_stmt.rhs, scope);
 
     if (lhs.type != rhs.type) {
         fprintf(stderr, "Trying to assign rhs of type %.*s, to lhs of type %.*s\n", 
@@ -610,12 +624,12 @@ void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
         return;
     }
 
-    if (!lhs.is_lvalue) {
+    if (lhs.mode != ADRESSING_VARIABLE) {
         fprintf(stderr, "Trying to assign to non lvalue lhs\n");
         return;
     }
 
-    if (lhs.is_const) {
+    if (lhs.mode == ADRESSING_CONSTANT) {
         fprintf(stderr, "Lhs is const and cannot be modified\n");
         return;
     }
@@ -623,7 +637,7 @@ void resolve_stmt_assign(Stmt *stmt, Scope *scope) {
 
 void resolve_stmt_if(Stmt *stmt, Scope *scope) {
     debug_assert(stmt->kind == STMT_IF);
-    ResolvedExpr cond = resolve_expr(stmt->if_stmt.cond, scope);
+    TypeAndValue cond = resolve_expr(stmt->if_stmt.cond, scope);
 
     if (cond.type != builtin_symbols[TYPE_S32].type) fprintf(stderr, "If condition must evaluate to S32\n");
     if (stmt->if_stmt.if_body.size > 0) {
@@ -636,7 +650,7 @@ void resolve_stmt_if(Stmt *stmt, Scope *scope) {
 
 void resolve_stmt_while(Stmt *stmt, Scope *scope) {
     debug_assert(stmt->kind == STMT_WHILE);
-    ResolvedExpr cond = resolve_expr(stmt->if_stmt.cond, scope);
+    TypeAndValue cond = resolve_expr(stmt->if_stmt.cond, scope);
 
     if (cond.type != builtin_symbols[TYPE_S32].type) fprintf(stderr, "While condition must evaluate to S32\n");
     if (stmt->while_stmt.body.size > 0) {
@@ -649,7 +663,7 @@ void resolve_stmt(Stmt *stmt, Scope *scope) {
         case STMT_RETURN: {
             // TODO: 
             if (stmt->expr) {
-                ResolvedExpr expr = resolve_expr(stmt->expr, scope);
+                TypeAndValue expr = resolve_expr(stmt->expr, scope);
                 if (expr.type != scope->expected_return_type) {
                     fprintf(stderr, "Mismatched return type. Expected %.*s got %.*s\n",
                         str8_varg(type_kind_name(scope->expected_return_type->kind)), str8_varg(type_kind_name(expr.type->kind)));

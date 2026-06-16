@@ -1,6 +1,3 @@
-#include "ir_builder.h"
-#include "x86-64.h"
-
 void x86_init_generator(x86Generator *generator, FILE *output_handle) {
     generator->output_handle = output_handle;
 }

@@ -1,14 +1,3 @@
-#ifndef PARSER_H 
-#define PARSER_H 
-
-#include <stddef.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include "base/base_arena.h"
-#include "lexer.h"
-#include "type.h"
-#include "value.h"
-
 typedef struct Symbol Symbol;
 typedef struct Expr Expr;
 typedef struct TypeSyntax TypeSyntax;
@@ -44,27 +33,12 @@ typedef enum ExprKind {
     EXPR_COMPOUND,
 } ExprKind;
 
-typedef enum AdressingMode {
-    ADRESSING_INVALID,
-    ADRESSING_NO_VALUE,
-    ADRESSING_VALUE,
-    ADRESSING_VAIARBLE,
-    ADRESSING_CONSTANT,
-    ADRESSING_TYPE,
-} AdressingMode;
-
-typedef struct TypeAndValue {
-    AdressingMode mode;
-    Type *type;
-    Value value;
-} TypeAndValue;
-
 struct Expr {
     ExprKind kind;
     Symbol *symbol;
+    TypeAndValue tav;
     union {
         String8 name;
-        TypeAndValue tav;
         struct { Expr *left; Expr *right; TokenKind op; } binary;
         struct { Expr *expr; TokenKind op; } unary;
         struct { Expr *expr; ExprList params; } call;
@@ -242,5 +216,3 @@ Stmt *parse_stmt_return(Lexer *lexer);
 
 Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
-
-#endif //PARSER_H

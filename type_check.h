@@ -1,6 +1,3 @@
-#pragma once 
-#include "parser.h"
-
 typedef struct Type Type;
 
 typedef enum StorageClass {
@@ -84,13 +81,6 @@ struct Scope {
     Arena *arena;
 };
 
-typedef struct ResolvedExpr {
-    Type *type;
-    Value value;
-    b32 is_const;
-    b32 is_lvalue;
-} ResolvedExpr;
-
 static TypeSet *GLOBAL_TYPE_TABLE = {0};
 
 TypeKind type_kind_from_str8(String8 string);
@@ -109,8 +99,8 @@ void register_decl(Decl *decl, Scope *scope);
 
 Type *resolve_type_syntax(TypeSyntax *type_syntax, Scope *scope);
 Type *resolve_decl_func(Decl *decl, Scope *scope);
-ResolvedExpr resolve_expr(Expr *expr, Scope *scope);
-Value resolve_const_expr(Expr *expr, Scope *scope);
+TypeAndValue resolve_expr(Expr *expr, Scope *scope);
+TypeAndValue resolve_const_expr(Expr *expr, Scope *scope);
 Symbol *resolve_name(String8 name, Scope *scope);
 void resolve_stmt_block(StmtList block, Scope *scope);
 void resolve_stmt(Stmt *stmt, Scope *scope);

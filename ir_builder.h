@@ -1,8 +1,3 @@
-#pragma once
-
-#include "parser.h"
-#include "base/base_string.h"
-
 typedef u32 LabelId;
 typedef u32 VReg;
 

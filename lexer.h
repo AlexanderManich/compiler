@@ -1,9 +1,3 @@
-#ifndef LEXER_H
-#define LEXER_H
-
-#include <stdlib.h>
-#include "base/base_include.h"
-
 typedef enum TokenKind {
     // Literals. These need to ALWAYS be defined the start of the enum, because we have table of token literals,
     // that is defined using these enums values as designated initializers, which we use to then do linear search
@@ -109,6 +103,3 @@ char peek_next_char(Lexer *lexer);
 
 String8 token_kind_name(TokenKind kind);
 TokenKind is_keyword(Token *token);
-
-
-#endif //LEXER_H

@@ -1,8 +1,20 @@
-#ifndef TYPE_H
-#define TYPE_H
-
 typedef struct Symbol Symbol;
 typedef struct Type Type;
+
+typedef enum AdressingMode {
+    ADRESSING_INVALID,
+    ADRESSING_NO_VALUE,
+    ADRESSING_VALUE,
+    ADRESSING_VARIABLE,
+    ADRESSING_CONSTANT,
+    ADRESSING_TYPE,
+} AdressingMode;
+
+typedef struct TypeAndValue {
+    AdressingMode mode;
+    Type *type;
+    Value value;
+} TypeAndValue;
 
 typedef enum TypeKind {
     TYPE_VOID,
@@ -47,5 +59,7 @@ typedef struct Type {
     };
 } Type;
 
-
-#endif // TYPE_H
+TypeAndValue tav_lvalue(Type *type);
+TypeAndValue tav_rvalue(Type *type);
+TypeAndValue tav_const(Type *type, Value value);
+TypeAndValue tav_novalue(void);
