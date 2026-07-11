@@ -6,7 +6,8 @@
         "${workspaceFolder}/**"
       ],
       "compilerPath": "/usr/bin/gcc",
-      "intelliSenseMode": "linux-gcc-x64"
+      "intelliSenseMode": "linux-gcc-x64",
+      "forcedInclude": ["${workspaceFolder}/main.c"]
     }
   ],
   "version": 4

@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include "lexer.h"
-
 // Literals that consist of multiple of the same character need to be earlier in the table,
 // than the same single charater, otherwise it will lex the charaters as seperate tokens.
 // Since we are using designated initializers we need to make sure this is true in the token kind enum.
@@ -74,15 +69,15 @@ String8 token_kind_name(TokenKind kind) {
     return (String8){0};
 }
 
-bool is_ident_start(char c) {
+b32 is_ident_start(char c) {
     return isalpha(c) || c == '_';
 }
 
-bool is_ident(char c) {
+b32 is_ident(char c) {
     return isalnum(c) || c == '_';
 }
 
-bool is_number_start(char c) {
+b32 is_number_start(char c) {
     if (isdigit(c)) return true;
     return false;
 }
@@ -93,7 +88,7 @@ void trim_input_left(Lexer *lexer) {
     }
 }
 
-bool lexer_starts_with(Lexer *lexer, String8 prefix) {
+b32 lexer_starts_with(Lexer *lexer, String8 prefix) {
     if (prefix.str == 0) {
         return true;
     }

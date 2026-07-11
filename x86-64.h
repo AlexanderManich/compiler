@@ -1,7 +1,3 @@
-#pragma once
-
-#include <stdio.h>
-
 typedef struct x86Generator {
     FILE *output_handle;
 } x86Generator;

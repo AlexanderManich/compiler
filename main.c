@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include "base/base_include.h"
 #include "lexer.h"
-#include "type_check.h"
 #include "type.h"
+#include "value.h"
 #include "parser.h"
+#include "type_check.h"
 #include "ir_builder.h"
 #include "x86-64.h"
-#include "base/base_include.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
     String8 result = {0};
@@ -147,6 +150,7 @@ int main(int argc, char **argv) {
 
 #include "base/base_include.c"
 #include "lexer.c"
+#include "value.c"
 #include "parser.c"
 #include "type_check.c"
 #include "ir_builder.c"

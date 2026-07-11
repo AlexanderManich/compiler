@@ -1,6 +1,3 @@
-#pragma once 
-#include "parser.h"
-
 typedef struct Type Type;
 
 typedef enum StorageClass {

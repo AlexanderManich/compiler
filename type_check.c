@@ -1,7 +1,3 @@
-#include "parser.h"
-#include "type.h"
-#include "type_check.h"
-
 static Arena GLOBAL_TYPE_ARENA;
 
 TypeKind type_kind_from_str8(String8 string) {

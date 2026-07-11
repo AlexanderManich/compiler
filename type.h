@@ -1,6 +1,3 @@
-#ifndef TYPE_H
-#define TYPE_H
-
 typedef struct Symbol Symbol;
 typedef struct Type Type;
 
@@ -46,6 +43,3 @@ typedef struct Type {
         struct { Type* base; } ptr;
     };
 } Type;
-
-
-#endif // TYPE_H

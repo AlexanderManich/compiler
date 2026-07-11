@@ -1,14 +1,3 @@
-#ifndef PARSER_H 
-#define PARSER_H 
-
-#include <stddef.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include "base/base_arena.h"
-#include "lexer.h"
-#include "type.h"
-#include "value.h"
-
 typedef struct Symbol Symbol;
 typedef struct Expr Expr;
 typedef struct TypeSyntax TypeSyntax;
@@ -242,5 +231,3 @@ Stmt *parse_stmt_return(Lexer *lexer);
 
 Token *parser_expect(Lexer *lexer, Token *token, TokenKind expected);
 void print_parse_error(Lexer *lexer, Token *token, const char *fmt, ...);
-
-#endif //PARSER_H
