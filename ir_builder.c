@@ -202,11 +202,6 @@ IRFunction *lower_function(IRBuilder *builder, Decl *func_decl) {
         lower_stmt(builder, stmt);
     }
 
-    IRInstr ret = {0};
-    ret.kind = IR_RET;
-    ret.operands_count = 0;
-    ir_emit_func_instr(func, ret);
-
     return func;
 }
 
@@ -221,8 +216,8 @@ VReg lower_expr(IRBuilder *builder, Expr *expr) {
             } else {
                 IRInstr instr = {0};
                 instr.kind = IR_LOAD;
-                ir_instr_push_operand(&instr, op_reg(reg, expr->symbol->type->size));
-                ir_instr_push_operand(&instr, op_stack(*slot, expr->symbol->type->size));
+                ir_instr_push_operand(&instr, op_reg(reg, expr->symbol->tav.type->size));
+                ir_instr_push_operand(&instr, op_stack(*slot, expr->symbol->tav.type->size));
                 ir_emit_func_instr(func, instr);
                 return reg;
             }
@@ -250,6 +245,7 @@ VReg lower_expr(IRBuilder *builder, Expr *expr) {
             switch (expr->binary.op) {
                 case TOKEN_PLUS:  instr.kind = IR_ADD;  break;
                 case TOKEN_MINUS: instr.kind = IR_SUB;  break;
+                case TOKEN_MULT:  instr.kind = IR_MUL;  break;
                 default:          instr.kind = IR_NOOP; break;
             }
             ir_instr_push_operand(&instr, op_reg(result_reg, expr->tav.type->size));
@@ -328,7 +324,7 @@ void lower_stmt(IRBuilder *builder, Stmt *stmt) {
             instr.kind = IR_RET;
             if (reg) {
                 instr.operands_count = 1;
-                ir_instr_push_operand(&instr, op_reg(reg, 8));
+                ir_instr_push_operand(&instr, op_reg(reg, stmt->expr->tav.type->size));
             }  
             ir_emit_func_instr(func, instr);
             break;

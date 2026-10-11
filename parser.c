@@ -135,11 +135,11 @@ Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type) {
     return result;
 }
 
-Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body) {
+Stmt *make_stmt_if(Arena *arena, ExprList conds, StmtListList if_bodies, StmtList else_body) {
     Stmt *result = push_array(arena, Stmt, 1);
     result->kind = STMT_IF;
-    result->if_stmt.cond = cond;
-    result->if_stmt.if_body = if_body;
+    result->if_stmt.conds = conds;
+    result->if_stmt.if_bodies = if_bodies;
     result->if_stmt.else_body = else_body;
     return result;
 }
@@ -613,26 +613,43 @@ Stmt *parse_stmt_decl(Lexer *lexer, String8 name) {
 Stmt *parse_stmt_if(Lexer *lexer) {
     parser_expect(lexer, peek_next_token(lexer), TOKEN_KEYWORD_IF);
 
+    ExprList conds = {0};
+    StmtListList if_bodies = {0};
+
     lexer->parser->context = CONTEXT_CONDITION;
     Expr *cond = parse_expr(lexer, -1);
+    da_append(lexer->parser->arena, conds, cond);
     lexer->parser->context = CONTEXT_DEFAULT;
 
-    // parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
-    // StmtList if_body = parse_stmts(lexer);
-    // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
     StmtList if_body = parse_block(lexer);
+    da_append(lexer->parser->arena, if_bodies, if_body);
 
     StmtList else_body = {0};
-    Token *next = peek_next_token(lexer);
-    if (next->kind == TOKEN_KEYWORD_ELSE)  {
+    
+    for (Token *next = peek_next_token(lexer); next->kind == TOKEN_KEYWORD_ELSE; next = peek_next_token(lexer)) {
         parser_expect(lexer, next, TOKEN_KEYWORD_ELSE);
-        // parser_expect(lexer, peek_next_token(lexer), TOKEN_LEFT_CURLY);
-        // else_body = parse_stmts(lexer);
-        // parser_expect(lexer, peek_next_token(lexer), TOKEN_RIGHT_CURLY);
-        else_body = parse_block(lexer);
+        next = peek_next_token(lexer);
+
+        if (next->kind == TOKEN_KEYWORD_IF) {
+            parser_expect(lexer, next, TOKEN_KEYWORD_IF);
+            lexer->parser->context = CONTEXT_CONDITION;
+            Expr *cond = parse_expr(lexer, -1);
+            da_append(lexer->parser->arena, conds, cond);
+            lexer->parser->context = CONTEXT_DEFAULT;
+
+            StmtList if_else_body = parse_block(lexer);
+            da_append(lexer->parser->arena, if_bodies, if_else_body);
+        } else if (next->kind == TOKEN_LEFT_CURLY) {
+            else_body = parse_block(lexer);
+        }
     }
 
-    Stmt *if_statement = make_stmt_if(lexer->parser->arena, cond, if_body, else_body);
+    // if (next->kind == TOKEN_KEYWORD_ELSE)  {
+    //     parser_expect(lexer, next, TOKEN_KEYWORD_ELSE);
+    //     else_body = parse_block(lexer);
+    // }
+
+    Stmt *if_statement = make_stmt_if(lexer->parser->arena, conds, if_bodies, else_body);
 
     return if_statement;
 }

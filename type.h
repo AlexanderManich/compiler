@@ -43,3 +43,18 @@ typedef struct Type {
         struct { Type* base; } ptr;
     };
 } Type;
+
+typedef enum AdressingMode {
+    ADRESSING_INVALID,
+    ADRESSING_NO_VALUE,
+    ADRESSING_VALUE,
+    ADRESSING_VARIABLE,
+    ADRESSING_CONSTANT,
+    ADRESSING_TYPE,
+} AdressingMode;
+
+typedef struct TypeAndValue {
+    AdressingMode mode;
+    Type *type;
+    Value value;
+} TypeAndValue;

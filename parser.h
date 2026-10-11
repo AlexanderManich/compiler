@@ -33,27 +33,13 @@ typedef enum ExprKind {
     EXPR_COMPOUND,
 } ExprKind;
 
-typedef enum AdressingMode {
-    ADRESSING_INVALID,
-    ADRESSING_NO_VALUE,
-    ADRESSING_VALUE,
-    ADRESSING_VAIARBLE,
-    ADRESSING_CONSTANT,
-    ADRESSING_TYPE,
-} AdressingMode;
-
-typedef struct TypeAndValue {
-    AdressingMode mode;
-    Type *type;
-    Value value;
-} TypeAndValue;
-
 struct Expr {
     ExprKind kind;
     Symbol *symbol;
+    TypeAndValue tav;
+
     union {
         String8 name;
-        TypeAndValue tav;
         struct { Expr *left; Expr *right; TokenKind op; } binary;
         struct { Expr *expr; TokenKind op; } unary;
         struct { Expr *expr; ExprList params; } call;
@@ -65,6 +51,13 @@ struct Expr {
 
 struct StmtList {
     Stmt **items;
+    u64 size;
+    u64 capacity;
+};
+
+typedef struct StmtListList StmtListList;
+struct StmtListList {
+    StmtList *items;
     u64 size;
     u64 capacity;
 };
@@ -145,8 +138,8 @@ struct Stmt {
         Expr* expr;
         Decl *decl;
         StmtList block;
-        struct  { Expr *lhs; Expr *rhs; } assign_stmt;
-        struct { Expr *cond; StmtList if_body; StmtList else_body; } if_stmt;
+        struct { Expr *lhs; Expr *rhs; } assign_stmt;
+        struct { ExprList conds; StmtListList if_bodies; StmtList else_body; } if_stmt;
         struct { Expr *cond; StmtList body; } while_stmt;
     };
 };
@@ -184,7 +177,7 @@ FuncParam *make_decl_param(Arena* arena, String8 name, TypeSyntax *type);
 FieldSyntax *make_field_syntax(Arena *arena, String8 name, TypeSyntax* type);
 Decl *make_decl_func(Arena *arena, String8 name, ParamList params, StmtList body, TypeSyntax *return_type, b32 is_external_func);
 Decl *make_decl_struct(Arena *arena, String8 struct_name, FieldSyntaxList fields);
-Stmt *make_stmt_if(Arena *arena, Expr *cond, StmtList if_body, StmtList else_body);
+Stmt *make_stmt_if(Arena *arena, ExprList conds, StmtListList if_bodies, StmtList else_body);
 Expr *make_expr_name(Arena *arena, String8 name);
 Expr *make_expr_call(Arena *arena, Expr* expr, ExprList params);
 Expr *make_expr_compound(Arena *arena, ExprList fields, TypeSyntax *type);

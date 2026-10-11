@@ -25,7 +25,7 @@ typedef enum TokenKind {
     TOKEN_LT,
     TOKEN_GT,
     TOKEN_AND,
-
+    
     // Uhh misc idk
     TOKEN_END,
     TOKEN_NAME,
@@ -39,7 +39,7 @@ typedef enum TokenKind {
     TOKEN_KEYWORD_STRUCT,
     TOKEN_KEYWORD_WHILE,
     TOKEN_KEYWORD_EXTERN,
-
+    
     TOKEN_INVALID,
 } TokenKind;
 

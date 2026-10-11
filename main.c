@@ -5,12 +5,14 @@
 #include <stdarg.h>
 #include "base/base_include.h"
 #include "lexer.h"
-#include "type.h"
 #include "value.h"
+#include "type.h"
 #include "parser.h"
 #include "type_check.h"
-#include "ir_builder.h"
-#include "x86-64.h"
+#include "ir_builder2.h"
+#include "ir_debug.c"
+// #include "ir_builder.h"
+// #include "x86-64.h"
 
 String8 read_entire_file(Arena *arena, String8 file_path) {
     String8 result = {0};
@@ -138,12 +140,16 @@ int main(int argc, char **argv) {
     String8 stripped_output_path = str8_strip_ext(output_file_path);
     String8 asm_output_path = str8_concat(&global_arena, stripped_output_path, str8_lit(".s"));
     
-    IRModule program_ir = lower_program(&global_arena, program_ast);
+    IRBuilder2 builder = {0};
+    builder.arena = &global_arena;
 
-    x86_emit_program(&global_arena, &program_ir, asm_output_path);
+    IRFunctionList2 ir = build_program_ir(&builder, program_ast);
+
+    print_ir_program(&ir);
+    // x86_emit_program(&global_arena, &program_ir, asm_output_path);
 
     // codegen_ast(&global_arena, GLOBAL_ORDERED_SYMBOLS, output_file_path);
-    asm_compile_and_link(&global_arena, output_file_path);
+    // asm_compile_and_link(&global_arena, output_file_path);
 
     return EXIT_SUCCESS;
 }
@@ -153,7 +159,8 @@ int main(int argc, char **argv) {
 #include "value.c"
 #include "parser.c"
 #include "type_check.c"
-#include "ir_builder.c"
-#include "x86-64.c"
+#include "ir_builder2.c"
+// #include "ir_builder.c"
+// #include "x86-64.c"
 
 

@@ -10,9 +10,9 @@
             "request": "launch",
             "program": "${workspaceRoot}/build/compiler",
             "args": [
-                "input.test",
+                "tests/if_stmt.comp",
                 "-o",
-                "build/test.out"
+                "build/if_stmt.out"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",
