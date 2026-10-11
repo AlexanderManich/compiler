@@ -67,8 +67,9 @@ void x86_emit_program(Arena *arena, IRModule *module, String8 asm_output_path) {
     emit_line(x86_gen.output_handle, "");
 
     for (u32 i = 0; i < module->functions.size; i++) {
-        x86_emit_function(&x86_gen, module->functions.items[i]);
-        emit_line(x86_gen.output_handle, "");
+        reg_alloc_function(module->functions.items[i]);
+        // x86_emit_function(&x86_gen, module->functions.items[i]);
+        // emit_line(x86_gen.output_handle, "");
     }
 
     fclose(asm_output_handle);

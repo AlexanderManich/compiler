@@ -19,10 +19,11 @@ IRFunction *ir_make_function(Arena *arena, String8 name) {
 }
 
 void ir_emit_func_instr(IRFunction *func, IRInstr instr) {
-    if (func->blocks.size == 0) {
-        LabelId label_id = ir_make_func_label(func);
-        ir_emit_func_label(func, label_id);
-    }
+    // TODO: Is this needed?
+    // if (func->blocks.size == 0) {
+    //     LabelId label_id = ir_make_func_label(func);
+    //     ir_emit_func_label(func, label_id);
+    // }
 
     da_append(func->arena, func->blocks.items[func->blocks.size - 1].instructions, instr);
 }
@@ -202,10 +203,10 @@ IRFunction *lower_function(IRBuilder *builder, Decl *func_decl) {
         lower_stmt(builder, stmt);
     }
 
-    IRInstr ret = {0};
-    ret.kind = IR_RET;
-    ret.operands_count = 0;
-    ir_emit_func_instr(func, ret);
+    // IRInstr ret = {0};
+    // ret.kind = IR_RET;
+    // ret.operands_count = 0;
+    // ir_emit_func_instr(func, ret);
 
     return func;
 }
@@ -296,6 +297,7 @@ void lower_stmt(IRBuilder *builder, Stmt *stmt) {
                 u32 slot = ir_alloc_stack_slot(func, decl->var.expr->tav.type->size);
                 table_add(&builder->locals_to_slots, &decl->name, &slot);
                 VReg rhs_reg = lower_expr(builder, decl->var.expr);
+
                 IRInstr instr = {0};
                 instr.kind = IR_STORE;
                 ir_instr_push_operand(&instr, op_stack(slot, decl->var.expr->tav.type->size));
@@ -313,7 +315,7 @@ void lower_stmt(IRBuilder *builder, Stmt *stmt) {
             if (slot) {
                 IRInstr instr = {0};
                 instr.kind = IR_STORE;
-                ir_instr_push_operand(&instr, op_stack(slot, right->tav.type->size));
+                ir_instr_push_operand(&instr, op_stack(slot, left->tav.type->size));
                 ir_instr_push_operand(&instr, op_reg(reg_right, right->tav.type->size));
                 ir_emit_func_instr(func, instr);
             }
@@ -327,7 +329,6 @@ void lower_stmt(IRBuilder *builder, Stmt *stmt) {
             IRInstr instr = {0};
             instr.kind = IR_RET;
             if (reg) {
-                instr.operands_count = 1;
                 ir_instr_push_operand(&instr, op_reg(reg, 8));
             }  
             ir_emit_func_instr(func, instr);
@@ -347,4 +348,18 @@ void lower_stmt(IRBuilder *builder, Stmt *stmt) {
             debug_assert(0 && "IRBuild not supported for STMT_KIND");
             break;
     }
+}
+
+void reg_alloc_function(IRFunction *func) {
+    printf("next_vreg: %d\n", func->next_vreg);
+    for (u32 i = 0; i < func->blocks.size; i++) {
+        IRBlock block = func->blocks.items[i];
+        for (u32 j = 0; j < block.instructions.size; j++) {
+            IRInstr *instr = &block.instructions.items[j];
+            IRDefUse intervals = ir_collect_def_use(instr);
+            
+
+        }
+    }
+
 }

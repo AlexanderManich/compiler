@@ -43,6 +43,7 @@ typedef enum IRInstrKind {
 
 typedef struct IRInstr {
     IRInstrKind kind;
+    u32 global_id;
     IROperand operands[IR_MAX_OPERANDS];
     u64 operands_count;
     Expr *origin;
@@ -124,3 +125,5 @@ typedef struct IRDefUse {
 } IRDefUse;
 
 IRDefUse ir_collect_def_use(IRInstr *instr);
+
+void reg_alloc_function(IRFunction *func);

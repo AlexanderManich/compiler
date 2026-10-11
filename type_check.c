@@ -1,36 +1,38 @@
 static Arena GLOBAL_TYPE_ARENA;
 
 TypeKind type_kind_from_str8(String8 string) {
-    if (str8_compare(string, str8_lit("void"))) return TYPE_VOID;
-    if (str8_compare(string, str8_lit("s8")))   return TYPE_S8;
-    if (str8_compare(string, str8_lit("s32")))  return TYPE_S32;
+    TypeKind result = TYPE_VOID;
+    if (str8_compare(string, str8_lit("void"))) result = TYPE_VOID;
+    if (str8_compare(string, str8_lit("s8")))   result = TYPE_S8;
+    if (str8_compare(string, str8_lit("s32")))  result = TYPE_S32;
 
     fprintf(stderr, "No TypeKind defined for name: %.*s\n", str8_varg(string));
-    return TYPE_VOID;
+    return result;
 }
 
 String8 type_kind_name(TypeKind kind) {
+    String8 result = {0};
     switch(kind) {
-        case TYPE_VOID:   return str8_lit("void");
-        case TYPE_S8:     return str8_lit("s8");
-        case TYPE_S32:    return str8_lit("s32");
-        case TYPE_STRING: return str8_lit("string");
-        case TYPE_PTR:    return str8_lit("pointer");
+        case TYPE_VOID:   result = str8_lit("void");    break;
+        case TYPE_S8:     result = str8_lit("s8");      break;
+        case TYPE_S32:    result = str8_lit("s32");     break;
+        case TYPE_STRING: result = str8_lit("string");  break;
+        case TYPE_PTR:    result = str8_lit("pointer"); break;
         default: fprintf(stderr, "No name defined for TypeKind %d\n", kind);
     }
-    return (String8){0};
+    return result;
 }
 
 String8 expr_kind_name(ExprKind kind) {
     String8 result = {0};
     switch(kind) {
-        case EXPR_NAME:     result = str8_lit("expr_name");
-        case EXPR_UNARY:    result = str8_lit("expr_unary");
-        case EXPR_BINARY:   result = str8_lit("expr_binary");
-        case EXPR_COMPOUND: result = str8_lit("expr_compound");
-        case EXPR_FIELD:    result = str8_lit("expr_field");
-        case EXPR_CALL:     result = str8_lit("expr_call");
-        case EXPR_LITERAL:  result = str8_lit("expr_literal");
+        case EXPR_NAME:     result = str8_lit("expr_name");     break;
+        case EXPR_UNARY:    result = str8_lit("expr_unary");    break;
+        case EXPR_BINARY:   result = str8_lit("expr_binary");   break;
+        case EXPR_COMPOUND: result = str8_lit("expr_compound"); break;
+        case EXPR_FIELD:    result = str8_lit("expr_field");    break;
+        case EXPR_CALL:     result = str8_lit("expr_call");     break;
+        case EXPR_LITERAL:  result = str8_lit("expr_literal");  break;
         default: fprintf(stderr, "No name defined for ExprKind %d\n", kind);
     }
     return result;
@@ -39,14 +41,14 @@ String8 expr_kind_name(ExprKind kind) {
 String8 stmt_kind_name(StmtKind kind) {
     String8 result = {0};
     switch(kind) {
-        case STMT_BLOCK:  result = str8_lit("stmt_block");
-        case STMT_DECL:   result = str8_lit("stmt_decl");
-        case STMT_RETURN: result = str8_lit("stmt_return");
-        case STMT_EXPR:   result = str8_lit("stmt_expr");
-        case STMT_WHILE:  result = str8_lit("stmt_while");
-        case STMT_ASSIGN: result = str8_lit("stmt_assign");
-        case STMT_IF:     result = str8_lit("stmt_if");
-        case STMT_NONE:   result = str8_lit("stmt_none");
+        case STMT_BLOCK:  result = str8_lit("stmt_block");  break;
+        case STMT_DECL:   result = str8_lit("stmt_decl");   break;
+        case STMT_RETURN: result = str8_lit("stmt_return"); break;
+        case STMT_EXPR:   result = str8_lit("stmt_expr");   break;
+        case STMT_WHILE:  result = str8_lit("stmt_while");  break;
+        case STMT_ASSIGN: result = str8_lit("stmt_assign"); break;
+        case STMT_IF:     result = str8_lit("stmt_if");     break;
+        case STMT_NONE:   result = str8_lit("stmt_none");   break;
         default: fprintf(stderr, "No name defined for StmtKind %d\n", kind);
     }
     return result;

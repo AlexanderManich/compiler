@@ -56,7 +56,7 @@ char *shift_args(char ***argv, int *argc);
         } da_temp; \
         memcpy(&da_temp, &da, sizeof(da_temp)); \
         (da).capacity = (da).capacity == 0 ? 256 : (da).capacity * 2; \
-        void *new_items = arena_push(arena, sizeof((da).items) * (da).capacity, ARENA_DEFAULT_ALIGN);\
+        void *new_items = arena_push(arena, sizeof(*(da).items) * (da).capacity, ARENA_DEFAULT_ALIGN);\
         if ((da).items) { \
             memcpy(new_items, (da).items, (da).size * sizeof(*(da).items)); \
         } \
